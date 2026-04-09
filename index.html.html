@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<!-- saved from url=(0053)file:///C:/Users/nahue/Downloads/ttl-terminal_20.html -->
+<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTL Terminal</title>
+<link href="./TTL Terminal web_files/css2" rel="stylesheet">
+<style>
+:root{--cyan:#00d4ff;--cyan-dim:#0099bb;--blue-dark:#030d1a;--blue-mid:#050f20;--blue-surface:#071628;--blue-card:#0a1e35;--blue-border:#0d2640;--text-primary:#e8f4ff;--text-secondary:#7ab8d4;--text-muted:#3d6b85;--green:#00ff88;--red:#ff3355;--yellow:#ffd700;--orange:#ff8800;--purple:#c084fc;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--blue-dark);color:var(--text-primary);font-family:'Rajdhani',sans-serif;font-size:15px;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 40% at 50% 0%,rgba(0,80,160,0.25) 0%,transparent 70%),radial-gradient(ellipse 60% 50% at 80% 100%,rgba(0,50,120,0.2) 0%,transparent 60%);pointer-events:none;z-index:0;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:1;}
+.wrap{position:relative;z-index:2;}
+/* LOGIN */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;}
+.login-box{width:100%;max-width:420px;background:var(--blue-card);border:1px solid var(--cyan-dim);border-radius:12px;padding:2.5rem;box-shadow:0 0 40px rgba(0,212,255,0.1);animation:fadeUp 0.6s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+.ttl-text{font-family:'Orbitron',monospace;font-size:2.5rem;font-weight:900;color:var(--cyan);letter-spacing:4px;display:block;text-align:center;}
+.login-sub{font-size:0.72rem;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;margin-top:4px;display:block;text-align:center;}
+.login-divider{height:1px;background:linear-gradient(90deg,transparent,var(--cyan-dim),transparent);margin:1.5rem 0;}
+.login-label{font-size:0.68rem;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px;display:block;}
+.login-input{width:100%;background:var(--blue-surface);border:1px solid var(--blue-border);border-radius:6px;padding:10px 14px;color:var(--text-primary);font-family:'Rajdhani',sans-serif;font-size:1rem;outline:none;transition:border-color 0.2s;margin-bottom:1.2rem;}
+.login-input:focus{border-color:var(--cyan-dim);}
+.login-btn{width:100%;background:transparent;border:1px solid var(--cyan);border-radius:6px;padding:12px;color:var(--cyan);font-family:'Orbitron',monospace;font-size:0.85rem;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;}
+.login-btn:hover{background:rgba(0,212,255,0.1);}
+.login-note{text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:1.5rem;line-height:1.6;}
+.login-note a{color:var(--cyan-dim);text-decoration:none;}
+/* TERMINAL */
+#terminal-screen{display:none;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0.8rem 1.5rem;background:var(--blue-mid);border-bottom:1px solid var(--blue-border);position:sticky;top:0;z-index:100;}
+.topbar-logo{font-family:'Orbitron',monospace;font-weight:900;font-size:1.1rem;color:var(--cyan);letter-spacing:3px;}
+.topbar-logo span{color:var(--text-secondary);font-weight:400;font-size:0.7rem;letter-spacing:2px;margin-left:8px;}
+.topbar-right{display:flex;align-items:center;gap:1.5rem;}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:0.7rem;color:var(--green);letter-spacing:1px;text-transform:uppercase;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.topbar-user{font-size:0.75rem;color:var(--text-secondary);}
+.logout-btn{background:transparent;border:1px solid var(--blue-border);border-radius:4px;padding:4px 10px;color:var(--text-muted);font-family:'Rajdhani',sans-serif;font-size:0.75rem;cursor:pointer;transition:all 0.2s;}
+.logout-btn:hover{border-color:var(--red);color:var(--red);}
+.main-layout{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 53px);}
+/* SIDEBAR */
+.sidebar{background:var(--blue-mid);border-right:1px solid var(--blue-border);padding:1.5rem 1rem;display:flex;flex-direction:column;gap:0.4rem;}
+.sidebar-section{font-size:0.62rem;letter-spacing:3px;color:var(--text-muted);text-transform:uppercase;padding:0.8rem 0.5rem 0.4rem;}
+.sidebar-item{display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.8rem;border-radius:6px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;color:var(--text-secondary);font-size:0.88rem;font-weight:500;}
+.sidebar-item:hover{background:var(--blue-card);color:var(--text-primary);}
+.sidebar-item.active{background:rgba(0,212,255,0.08);border-color:rgba(0,212,255,0.2);color:var(--cyan);}
+.badge-count{background:var(--cyan);color:var(--blue-dark);border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:700;font-family:'Orbitron',monospace;}
+/* CONTENT */
+.content{padding:1.5rem;overflow-y:auto;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+.stat-card{background:var(--blue-card);border:1px solid var(--blue-border);border-radius:8px;padding:1rem 1.2rem;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--cyan);opacity:0.5;}
+.stat-card.green::before{background:var(--green);}
+.stat-card.yellow::before{background:var(--yellow);}
+.stat-card.purple::before{background:var(--purple);}
+.stat-label{font-size:0.62rem;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px;}
+.stat-value{font-family:'Orbitron',monospace;font-size:1.6rem;font-weight:700;color:var(--cyan);}
+.stat-card.green .stat-value{color:var(--green);}
+.stat-card.yellow .stat-value{color:var(--yellow);}
+.stat-card.purple .stat-value{color:var(--purple);}
+.stat-sub{font-size:0.7rem;color:var(--text-muted);margin-top:4px;}
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--blue-border);margin-bottom:1.5rem;}
+.tab-btn{background:transparent;border:none;border-bottom:2px solid transparent;padding:0.7rem 1.2rem;color:var(--text-muted);font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;margin-bottom:-1px;}
+.tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.section-header{display:flex;align-items:center;margin-bottom:1rem;}
+.section-title{font-family:'Orbitron',monospace;font-size:0.72rem;letter-spacing:3px;color:var(--cyan);text-transform:uppercase;white-space:nowrap;}
+.section-line{flex:1;height:1px;background:linear-gradient(90deg,var(--cyan-dim),transparent);margin-left:1rem;opacity:0.3;}
+.notif-bar{background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:6px;padding:0.7rem 1rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:10px;font-size:0.84rem;color:var(--cyan);}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);flex-shrink:0;animation:pulse 1.5s infinite;}
+/* TABLE */
+.scanner-table{width:100%;border-collapse:collapse;margin-bottom:1.5rem;}
+.scanner-table thead tr{border-bottom:1px solid var(--blue-border);}
+.scanner-table th{font-size:0.62rem;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;padding:0.6rem 0.7rem;text-align:left;font-weight:500;}
+.scanner-table tr.data-row{border-bottom:1px solid rgba(13,38,64,0.5);cursor:pointer;transition:background 0.15s;}
+.scanner-table tr.data-row:hover td{background:rgba(0,212,255,0.04);}
+.scanner-table td{padding:0.7rem 0.7rem;vertical-align:middle;}
+.pair-name{font-family:'Orbitron',monospace;font-size:0.77rem;font-weight:700;color:var(--text-primary);}
+.pair-tf{font-size:0.67rem;color:var(--text-muted);margin-top:2px;}
+/* PRICE */
+.price-live{font-family:'Orbitron',monospace;font-size:0.9rem;font-weight:700;color:var(--text-primary);transition:color 0.4s;}
+.price-live.up{color:var(--green);}
+.price-live.down{color:var(--red);}
+.price-entry{font-size:0.7rem;color:var(--text-muted);margin-top:3px;}
+.price-entry span{color:var(--yellow);font-weight:600;}
+.dist-val{font-family:'Orbitron',monospace;font-size:0.68rem;margin-top:2px;display:block;}
+.dist-val.near{color:var(--green);}
+.dist-val.mid{color:var(--yellow);}
+.dist-val.far{color:var(--red);}
+/* CHECKLIST */
+.checklist{display:flex;flex-direction:column;gap:3px;}
+.check-item{display:inline-flex;align-items:center;gap:4px;font-size:0.67rem;}
+.check-icon{width:13px;height:13px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0;}
+.check-icon.ok{background:rgba(0,255,136,0.15);color:var(--green);}
+.check-icon.no{background:rgba(255,51,85,0.15);color:var(--red);}
+/* SCORE */
+.score-wrap{display:flex;align-items:center;gap:6px;}
+.score-bar-bg{width:60px;height:5px;background:var(--blue-border);border-radius:3px;overflow:hidden;}
+.score-bar-fill{height:100%;border-radius:3px;}
+.score-bar-fill.full{background:var(--green);}
+.score-bar-fill.high{background:var(--cyan);}
+.score-bar-fill.mid{background:var(--yellow);}
+.score-bar-fill.low{background:var(--red);}
+.score-txt{font-family:'Orbitron',monospace;font-size:0.7rem;font-weight:700;min-width:26px;}
+.score-txt.full{color:var(--green);}
+.score-txt.high{color:var(--cyan);}
+.score-txt.mid{color:var(--yellow);}
+.score-txt.low{color:var(--red);}
+/* ENV TAGS */
+.env-tf{background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:3px;padding:1px 5px;font-size:0.62rem;color:var(--cyan);margin-right:2px;display:inline-block;margin-bottom:2px;}
+.alert-tag{display:inline-flex;align-items:center;border-radius:4px;padding:2px 7px;font-size:0.62rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.alert-tag.setup{background:rgba(0,255,136,0.12);color:var(--green);border:1px solid rgba(0,255,136,0.2);}
+.alert-tag.watch{background:rgba(0,212,255,0.12);color:var(--cyan);border:1px solid rgba(0,212,255,0.2);}
+.alert-tag.wait{background:rgba(255,215,0,0.10);color:var(--yellow);border:1px solid rgba(255,215,0,0.2);}
+.alert-tag.none{background:rgba(61,107,133,0.12);color:var(--text-muted);border:1px solid transparent;}
+/* ENTRY BADGE */
+.entry-badge{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:3px 7px;font-size:0.65rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;margin-top:4px;}
+.entry-badge.optima{background:rgba(0,255,136,0.12);color:var(--green);border:1px solid rgba(0,255,136,0.25);}
+.entry-badge.valida{background:rgba(0,212,255,0.12);color:var(--cyan);border:1px solid rgba(0,212,255,0.25);}
+.entry-badge.espera{background:rgba(255,136,0,0.1);color:var(--orange);border:1px solid rgba(255,136,0,0.25);}
+.entry-badge.tarde{background:rgba(255,51,85,0.12);color:var(--red);border:1px solid rgba(255,51,85,0.25);}
+.entry-badge.nozona{background:rgba(61,107,133,0.12);color:var(--text-muted);border:1px solid transparent;}
+/* VWAP */
+.vwap-pill{display:inline-block;font-size:0.65rem;padding:2px 7px;border-radius:3px;margin-top:3px;}
+.vwap-pill.ok{background:rgba(0,255,136,0.1);color:var(--green);}
+.vwap-pill.ko{background:rgba(255,51,85,0.1);color:var(--red);}
+.vwap-pill.nd{background:rgba(61,107,133,0.1);color:var(--text-muted);}
+/* EXPAND */
+.expand-arrow{font-size:0.62rem;color:var(--text-muted);transition:transform 0.2s;margin-left:4px;display:inline-block;}
+.expand-arrow.open{transform:rotate(180deg);color:var(--cyan);}
+.analysis-row{display:none;}
+.analysis-row.open{display:table-row;}
+.analysis-panel{background:var(--blue-surface);border-top:1px solid var(--blue-border);border-bottom:2px solid var(--cyan-dim);padding:1.2rem 1.4rem;}
+.analysis-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.7rem;margin-bottom:1rem;}
+.ablock{background:var(--blue-card);border-radius:6px;padding:0.75rem;border-left:2px solid var(--blue-border);}
+.ablock.zona{border-left-color:var(--cyan-dim);}
+.ablock.confirm{border-left-color:var(--yellow);}
+.ablock.trigger{border-left-color:var(--purple);}
+.ablock.optima{border-left-color:var(--green);}
+.ablock.valida{border-left-color:var(--cyan);}
+.ablock.espera{border-left-color:var(--orange);}
+.ablock.tarde{border-left-color:var(--red);}
+.ablock.nozona{border-left-color:var(--text-muted);}
+.ab-title{font-size:0.57rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;}
+.ablock.zona .ab-title{color:var(--cyan);}
+.ablock.confirm .ab-title{color:var(--yellow);}
+.ablock.trigger .ab-title{color:var(--purple);}
+.ablock.optima .ab-title,.ablock.valida .ab-title{color:var(--green);}
+.ablock.espera .ab-title{color:var(--orange);}
+.ablock.tarde .ab-title{color:var(--red);}
+.ablock.nozona .ab-title{color:var(--text-muted);}
+.ab-text{font-size:0.79rem;color:var(--text-secondary);line-height:1.6;}
+.analysis-narrative{background:var(--blue-card);border-radius:6px;padding:1rem 1.2rem;border:1px solid var(--blue-border);font-size:0.83rem;color:var(--text-secondary);line-height:1.85;}
+/* ZONES */
+.zone-panel{background:var(--blue-card);border:1px solid var(--blue-border);border-radius:8px;padding:1.2rem;margin-bottom:1rem;}
+.zone-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
+.zone-row{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid rgba(13,38,64,0.8);font-size:0.84rem;}
+.zone-row:last-child{border-bottom:none;}
+.add-zone-form{background:var(--blue-surface);border:1px dashed var(--blue-border);border-radius:8px;padding:1.2rem;margin-top:1rem;}
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.75rem;align-items:end;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-label{font-size:0.62rem;letter-spacing:1.5px;color:var(--text-muted);text-transform:uppercase;}
+.form-input,.form-select{background:var(--blue-card);border:1px solid var(--blue-border);border-radius:5px;padding:7px 10px;color:var(--text-primary);font-family:'Rajdhani',sans-serif;font-size:0.9rem;outline:none;transition:border-color 0.2s;width:100%;}
+.form-input:focus,.form-select:focus{border-color:var(--cyan-dim);}
+.form-select option{background:var(--blue-card);}
+.add-btn{background:rgba(0,212,255,0.1);border:1px solid var(--cyan-dim);border-radius:5px;padding:7px 16px;color:var(--cyan);font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.add-btn:hover{background:rgba(0,212,255,0.2);}
+.footer{text-align:center;padding:1rem;font-size:0.62rem;color:var(--text-muted);letter-spacing:2px;border-top:1px solid var(--blue-border);}
+@media(max-width:900px){.main-layout{grid-template-columns:1fr;}.sidebar{display:none;}.stats-row{grid-template-columns:repeat(2,1fr);}.analysis-grid{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- LOGIN -->
+<div id="login-screen" style="display: none;">
+  <div class="login-box">
+    <span class="ttl-text">TTL</span>
+    <span class="login-sub">Trade To Live · Terminal</span>
+    <div class="login-divider"></div>
+    <label class="login-label">Usuario / Email</label>
+    <input class="login-input" type="text" id="login-user" placeholder="tu@email.com">
+    <label class="login-label">Contraseña</label>
+    <input class="login-input" type="password" id="login-pass" placeholder="••••••••">
+    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+    <p class="login-note">Acceso exclusivo para referidos de BingX<br><a href="file:///C:/Users/nahue/Downloads/ttl-terminal_20.html#">¿No tenés acceso? Registrate aquí</a></p>
+  </div>
+</div>
+
+<!-- TERMINAL -->
+<div id="terminal-screen" style="display: block;">
+  <div class="topbar">
+    <div class="topbar-logo">TTL <span>TERMINAL · v0.3</span></div>
+    <div class="topbar-right">
+      <div class="live-badge"><div class="live-dot"></div><span id="live-label">Cargando...</span></div>
+      <div class="topbar-user" id="display-user">asd</div>
+      <button class="logout-btn" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <div class="sidebar">
+      <div class="sidebar-section">Navegación</div>
+      <div class="sidebar-item active" onclick="switchTab(&#39;scanner&#39;)"><span>◈ Scanner</span><span class="badge-count" id="setup-count">0</span></div>
+      <div class="sidebar-item" onclick="switchTab(&#39;zonas&#39;)"><span>◉ Mis Zonas</span></div>
+      <div class="sidebar-section">Info</div>
+      <div class="sidebar-item" onclick="switchTab(&#39;setup&#39;)"><span>◇ Setup TTL</span></div>
+    </div>
+
+    <div class="content">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Pares escaneados</div><div class="stat-value">8</div><div class="stat-sub">Crypto Futures BingX</div></div>
+        <div class="stat-card green"><div class="stat-label">Setup completo</div><div class="stat-value" id="stat-setups">0</div><div class="stat-sub">Zona + Confirm + Trigger</div></div>
+        <div class="stat-card yellow"><div class="stat-label">En observación</div><div class="stat-value" id="stat-watch">0</div><div class="stat-sub">Faltan condiciones</div></div>
+        <div class="stat-card purple"><div class="stat-label">Zonas cargadas</div><div class="stat-value" id="stat-zones">0</div><div class="stat-sub">OB / Key Level manuales</div></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-scanner" onclick="switchTab(&#39;scanner&#39;)">Scanner</button>
+        <button class="tab-btn" id="tab-zonas" onclick="switchTab(&#39;zonas&#39;)">Mis Zonas</button>
+        <button class="tab-btn" id="tab-setup" onclick="switchTab(&#39;setup&#39;)">Setup TTL</button>
+      </div>
+
+      <!-- SCANNER -->
+      <div class="tab-content active" id="content-scanner">
+        <div class="notif-bar" style="border-color: rgba(0, 212, 255, 0.2);"><div class="notif-dot" style="background: var(--cyan);"></div><span id="notif-text">Analizando BTC/USDT (1/8)...</span></div>
+        <div class="section-header"><span class="section-title">Resultado del Scan</span><div class="section-line"></div></div>
+        <table class="scanner-table">
+          <thead><tr>
+            <th>Par / Dir</th><th>Precio Live · Entrada</th><th>Zona OB · KL</th><th>Confirmación</th><th>Envolvente</th><th>VWAP · Estado</th><th>Score · Setup</th>
+          </tr></thead>
+          <tbody id="scanner-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- ZONAS -->
+      <div class="tab-content" id="content-zonas">
+        <div class="section-header"><span class="section-title">Zonas Cargadas</span><div class="section-line"></div></div>
+        <div id="zones-list"><p style="color:var(--text-muted);font-size:0.85rem;padding:1rem 0;">Las zonas auto-detectadas aparecerán después de que el scanner cargue los datos de mercado.</p></div>
+        <div class="add-zone-form">
+          <div class="section-header" style="margin-bottom:1rem;"><span class="section-title">Agregar Zona</span></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Par</label><input class="form-input" id="z-pair" placeholder="BTC/USDT"></div>
+            <div class="form-group"><label class="form-label">Tipo</label>
+              <select class="form-select" id="z-type">
+                <option value="OB Extremo">OB Extremo</option>
+                <option value="OB Oculto">OB Oculto</option>
+                <option value="Key Level">Key Level</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">TF del OB</label>
+              <select class="form-select" id="z-tf">
+                <option value="15m">15m</option><option value="30m">30m</option>
+                <option value="1h">1H</option><option value="4h">4H</option>
+                <option value="1d">1D</option><option value="1w">1W</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Rango low - high</label><input class="form-input" id="z-range" placeholder="60000 - 62000"></div>
+            <button class="add-btn" onclick="addZone()">+ Agregar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETUP -->
+      <div class="tab-content" id="content-setup">
+        <div class="section-header"><span class="section-title">Setup TTL — Orden de Filtros</span><div class="section-line"></div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+          <div class="zone-panel"><div class="zone-header"><span style="font-family:Orbitron,monospace;font-size:0.85rem;color:var(--cyan);">① Zona — Base del Setup</span></div><p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;"><strong style="color:var(--text-primary)">Sin zona no hay setup.</strong> El precio debe estar tocando un OB Extremo, OB Oculto o Key Level. El resto de condiciones no se evalúan sin zona activa.</p></div>
+          <div class="zone-panel"><div class="zone-header"><span style="font-family:Orbitron,monospace;font-size:0.85rem;color:var(--yellow);">② Confirmación en la Zona</span></div><p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;"><strong style="color:var(--text-primary)">Volumen descendente</strong> — la presión previa se debilita justo en la zona.<br><strong style="color:var(--text-primary)">Divergencia MACD</strong> — las EMAs muestran cambio de momentum.</p></div>
+          <div class="zone-panel"><div class="zone-header"><span style="font-family:Orbitron,monospace;font-size:0.85rem;color:var(--purple);">③ Trigger — Envolvente</span></div><p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;">Vela <strong style="color:var(--text-primary)">cerrada</strong> que envuelve completamente a la anterior. En <strong style="color:var(--text-primary)">15m o 30m mínimo</strong>, tocando la zona.<br><br>LONG = envolvente alcista · SHORT = envolvente bajista<br>El cierre de esa vela = <strong style="color:var(--yellow)">precio de entrada.</strong></p></div>
+          <div class="zone-panel"><div class="zone-header"><span style="font-family:Orbitron,monospace;font-size:0.85rem;color:var(--green);">④ VWAP — Tendencia Real</span></div><p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.7;"><strong style="color:var(--green)">LONG</strong>: precio por encima del VWAP = tendencia alcista real.<br><strong style="color:var(--red)">SHORT</strong>: precio por debajo del VWAP = tendencia bajista real.<br><br>VWAP calculado desde velas 1H reales de Binance.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">TRADE TO LIVE · TERMINAL v0.3 · USO EXCLUSIVO REFERIDOS BINGX</div>
+</div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const PAIRS = [
+  {pair:'BTC/USDT', symbol:'BTCUSDT', tf:'4h', dir:'LONG',  zones:['OB Extremo','OB Oculto','Key Level']},
+  {pair:'ETH/USDT', symbol:'ETHUSDT', tf:'4h', dir:'LONG',  zones:['OB Extremo','OB Oculto']},
+  {pair:'XRP/USDT', symbol:'XRPUSDT', tf:'4h', dir:'SHORT', zones:['OB Oculto','Key Level','OB Extremo']},
+  {pair:'SOL/USDT', symbol:'SOLUSDT', tf:'1d', dir:'LONG',  zones:['OB Extremo']},
+  {pair:'BNB/USDT', symbol:'BNBUSDT', tf:'30m',dir:'SHORT', zones:['OB Oculto','Key Level','OB Extremo']},
+  {pair:'DOGE/USDT',symbol:'DOGEUSDT',tf:'1h', dir:'LONG',  zones:[]},
+  {pair:'ADA/USDT', symbol:'ADAUSDT', tf:'4h', dir:'SHORT', zones:['OB Oculto']},
+  {pair:'AVAX/USDT',symbol:'AVAXUSDT',tf:'1d', dir:'LONG',  zones:['Key Level']},
+];
+
+const ZONE_CHECKS = ['OB Extremo','OB Oculto','Key Level'];
+const CONFIRM_CHECKS = ['Vol. Desc.','Div. MACD'];
+
+// Full TF hierarchy — ordered from smallest to largest
+const TF_HIERARCHY = ['1m','3m','5m','15m','30m','1h','4h','1d','1w','1M'];
+const TF_LABELS    = {'1m':'1m','3m':'3m','5m':'5m','15m':'15m','30m':'30m','1h':'1H','4h':'4H','1d':'1D','1w':'1W','1M':'1M'};
+const TF_API       = {'1m':'1m','3m':'3m','5m':'5m','15m':'15m','30m':'30m','1h':'1h','4h':'4h','1d':'1d','1w':'1w','1M':'1M'};
+
+// Get valid confirmation TFs for a given OB TF (up to 3 levels below)
+function getConfirmTFs(obTf) {
+  const idx = TF_HIERARCHY.indexOf(obTf);
+  if (idx < 0) return [];
+  const start = Math.max(0, idx - 3);
+  return TF_HIERARCHY.slice(start, idx); // up to 3 levels below, smallest first
+}
+
+// Entry quality based on how many levels below OB the confirmation is
+function entryQuality(obTf, confirmTf) {
+  const obIdx = TF_HIERARCHY.indexOf(obTf);
+  const cfIdx = TF_HIERARCHY.indexOf(confirmTf);
+  if (obIdx < 0 || cfIdx < 0) return null;
+  const levels = obIdx - cfIdx;
+  if (levels === 3) return {label:'Entrada temprana', desc:'3 niveles abajo del OB — precio óptimo', cls:'optima'};
+  if (levels === 2) return {label:'Entrada equilibrada', desc:'2 niveles abajo del OB', cls:'valida'};
+  if (levels === 1) return {label:'Entrada conservadora', desc:'1 nivel abajo del OB — casi tarde', cls:'espera'};
+  return {label:'Entrada tardía', desc:'Mismo TF del OB — movimiento ya arrancó', cls:'tarde'};
+}
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {}; // symbol -> { price, prevPrice, vwap, envolventes, entryPrice, volDesc, macdDiv }
+PAIRS.forEach(p => {
+  state[p.symbol] = { price:0, prevPrice:0, vwap:null, envolventes:[], envQualities:[], bestQuality:null, entryPrice:null, volDesc:false, macdDiv:false };
+});
+
+// ============================================================
+// UTILS
+// ============================================================
+function fmtPrice(sym, p) {
+  if (!p) return '—';
+  if (p > 1000) return '$' + p.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (p > 10)   return '$' + p.toFixed(2);
+  if (p > 1)    return '$' + p.toFixed(3);
+  return '$' + p.toFixed(4);
+}
+
+function setNotif(txt, color) {
+  const el = document.getElementById('notif-text');
+  if (el) el.textContent = txt;
+  const bar = el && el.closest('.notif-bar');
+  if (bar) bar.style.borderColor = color === 'green' ? 'rgba(0,255,136,0.3)' : 'rgba(0,212,255,0.2)';
+  const dot = bar && bar.querySelector('.notif-dot');
+  if (dot) dot.style.background = color === 'green' ? 'var(--green)' : 'var(--cyan)';
+}
+
+// ============================================================
+// BINANCE API
+// ============================================================
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function apiFetch(url) {
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 10000);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(tid);
+    const data = await res.json();
+    return data;
+  } catch(e) { return null; }
+}
+
+// Fetch all prices at once (1 request)
+async function fetchAllPrices() {
+  const data = await apiFetch('https://api.binance.com/api/v3/ticker/price');
+  if (!Array.isArray(data)) return false;
+  const syms = new Set(PAIRS.map(p => p.symbol));
+  data.forEach(t => {
+    if (syms.has(t.symbol)) {
+      const price = parseFloat(t.price);
+      state[t.symbol].prevPrice = state[t.symbol].price || price;
+      state[t.symbol].price = price;
+    }
+  });
+  return true;
+}
+
+// Fetch klines
+async function fetchKlines(symbol, interval, limit) {
+  const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const data = await apiFetch(url);
+  return Array.isArray(data) ? data : null;
+}
+
+// VWAP from 1H candles
+function calcVwap(klines) {
+  let sumPV = 0, sumV = 0;
+  klines.forEach(k => {
+    const h=parseFloat(k[2]),l=parseFloat(k[3]),c=parseFloat(k[4]),v=parseFloat(k[5]);
+    sumPV += ((h+l+c)/3)*v; sumV += v;
+  });
+  return sumV > 0 ? sumPV/sumV : null;
+}
+
+// ============================================================
+// OB AUTO-DETECTION
+// ============================================================
+
+// Detect OB Extremo
+// For SHORT: find the candle with the HIGHEST CLOSE in the visible range
+//            that was followed by a strong move down
+// For LONG:  find the candle with the LOWEST CLOSE in the visible range
+//            that was followed by a strong move up
+// Returns array of {type:'OB Extremo', low, high, closePrice, wickPrice, idx}
+function detectOBExtremo(klines, dir) {
+  if (!klines || klines.length < 10) return [];
+  const closed = klines.slice(0, -1);
+  const results = [];
+
+  // Find the most extreme close in the last 50 candles
+  // Then verify there was a strong move after it
+  const window = closed.slice(-50);
+
+  if (dir === 'SHORT') {
+    // Highest close = potential SHORT OB Extremo (top of the move)
+    let maxClose = -Infinity, maxIdx = -1;
+    window.forEach((k, i) => {
+      const c = parseFloat(k[4]);
+      if (c > maxClose) { maxClose = c; maxIdx = i; }
+    });
+    if (maxIdx < 0 || maxIdx > window.length - 3) return [];
+    const extremeCandle = window[maxIdx];
+    const eClose = parseFloat(extremeCandle[4]);
+    const eHigh  = parseFloat(extremeCandle[2]); // wick = liquidity
+    // Verify strong move down after this candle
+    const after = window.slice(maxIdx + 1, maxIdx + 5);
+    const strongMoveDown = after.some(k => parseFloat(k[4]) < eClose * 0.995);
+    if (!strongMoveDown) return [];
+    results.push({
+      type: 'OB Extremo', dir,
+      low: eClose,        // body close (lower bound of OB)
+      high: eHigh,        // wick (upper bound = liquidity)
+      closePrice: eClose,
+      wickPrice: eHigh,
+      idx: maxIdx
+    });
+  } else {
+    // Lowest close = potential LONG OB Extremo (bottom of the move)
+    let minClose = Infinity, minIdx = -1;
+    window.forEach((k, i) => {
+      const c = parseFloat(k[4]);
+      if (c < minClose) { minClose = c; minIdx = i; }
+    });
+    if (minIdx < 0 || minIdx > window.length - 3) return [];
+    const extremeCandle = window[minIdx];
+    const eClose = parseFloat(extremeCandle[4]);
+    const eLow   = parseFloat(extremeCandle[3]); // wick = liquidity
+    const after = window.slice(minIdx + 1, minIdx + 5);
+    const strongMoveUp = after.some(k => parseFloat(k[4]) > eClose * 1.005);
+    if (!strongMoveUp) return [];
+    results.push({
+      type: 'OB Extremo', dir,
+      low: eLow,          // wick (lower bound = liquidity)
+      high: eClose,       // body close (upper bound of OB)
+      closePrice: eClose,
+      wickPrice: eLow,
+      idx: minIdx
+    });
+  }
+  return results;
+}
+
+// Detect OB Oculto
+// Logic:
+// 1. Find an OB Extremo close (the first close)
+// 2. Find a candle whose BODY completely crosses that close level
+//    (body opens one side, closes the other side — cuerpo completo)
+// 3. Find the next close after that impulse candle on the opposite side
+// 4. OB Oculto = range between those two closes
+//    (only mechas and the impulse body in between)
+function detectOBOculto(klines, dir) {
+  if (!klines || klines.length < 15) return [];
+  const closed = klines.slice(0, -1);
+  const results = [];
+  const window = closed.slice(-60);
+
+  for (let i = 5; i < window.length - 5; i++) {
+    const k = window[i];
+    const kOpen  = parseFloat(k[1]);
+    const kClose = parseFloat(k[4]);
+    const kBodySize = Math.abs(kClose - kOpen);
+    const kRange = parseFloat(k[2]) - parseFloat(k[3]);
+    // Must be a significant candle (body > 40% of total range)
+    if (kRange === 0 || kBodySize / kRange < 0.4) continue;
+
+    if (dir === 'SHORT') {
+      // Looking for: body that goes UP strongly (breaks previous resistance)
+      // then price comes back down and closes below
+      if (kClose <= kOpen) continue; // need green body going up
+      const prevClose = parseFloat(window[i-1][4]);
+      // Body must completely cross the previous close level
+      if (!(kOpen < prevClose && kClose > prevClose)) continue;
+      // The "first close" is prevClose (the OB Extremo close level)
+      const firstClose = prevClose;
+      // Find next close BELOW firstClose after the impulse
+      for (let j = i + 1; j < Math.min(i + 15, window.length); j++) {
+        const jClose = parseFloat(window[j][4]);
+        if (jClose < firstClose) {
+          // OB Oculto: between firstClose (top) and jClose (bottom)
+          // but jClose must be meaningfully below firstClose
+          if ((firstClose - jClose) / firstClose < 0.001) continue;
+          results.push({
+            type: 'OB Oculto', dir,
+            low: jClose,
+            high: firstClose,
+            closePrice: firstClose,
+            retestClose: jClose,
+            breakIdx: i,
+            retestIdx: j
+          });
+          break;
+        }
+      }
+    } else {
+      // LONG: body goes DOWN strongly (breaks previous support)
+      // then price comes back up and closes above
+      if (kClose >= kOpen) continue; // need red body going down
+      const prevClose = parseFloat(window[i-1][4]);
+      if (!(kOpen > prevClose && kClose < prevClose)) continue;
+      const firstClose = prevClose;
+      // Find next close ABOVE firstClose after the impulse
+      for (let j = i + 1; j < Math.min(i + 15, window.length); j++) {
+        const jClose = parseFloat(window[j][4]);
+        if (jClose > firstClose) {
+          if ((jClose - firstClose) / firstClose < 0.001) continue;
+          results.push({
+            type: 'OB Oculto', dir,
+            low: firstClose,
+            high: jClose,
+            closePrice: firstClose,
+            retestClose: jClose,
+            breakIdx: i,
+            retestIdx: j
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  // Return most recent OB Ocultos (last 3 max)
+  return results.slice(-3);
+}
+
+// Detect Key Level
+// Two consecutive (or near) closes almost at the same price (within 0.15%)
+function detectKeyLevels(klines) {
+  if (!klines || klines.length < 5) return [];
+  const closed = klines.slice(0, -1);
+  const window = closed.slice(-50);
+  const results = [];
+  const TOLERANCE = 0.0015; // 0.15%
+
+  for (let i = 1; i < window.length; i++) {
+    const c1 = parseFloat(window[i-1][4]);
+    const c2 = parseFloat(window[i][4]);
+    const diff = Math.abs(c2 - c1) / c1;
+    if (diff <= TOLERANCE) {
+      const level = (c1 + c2) / 2;
+      // Avoid duplicates close to each other
+      const isDup = results.some(r => Math.abs(r.low - level) / level < 0.002);
+      if (!isDup) {
+        results.push({
+          type: 'Key Level',
+          low: Math.min(c1, c2),
+          high: Math.max(c1, c2),
+          level,
+          close1: c1,
+          close2: c2,
+          idx: i
+        });
+      }
+    }
+  }
+  return results.slice(-3); // last 3 key levels
+}
+
+// Main OB detector — runs all 3 and returns all found zones
+// Sync version — reuses already-fetched klines
+function detectAllOBsFromKlines(klines, dir) {
+  if (!klines) return [];
+  const extremos = detectOBExtremo(klines, dir);
+  const ocultos  = detectOBOculto(klines, dir);
+  const keyLvls  = detectKeyLevels(klines);
+  return [...extremos, ...ocultos, ...keyLvls];
+}
+
+// Check if current price is within or near a detected OB zone
+// Returns closest zone and proximity
+function findClosestZone(price, zones) {
+  if (!zones.length || !price) return {zone:null, proximity:'far'};
+  let closest = null, closestProx = 'far';
+  const order = ['inside','near','approaching','far'];
+  for (const z of zones) {
+    const prox = priceToZone(price, z);
+    if (order.indexOf(prox) < order.indexOf(closestProx)) {
+      closestProx = prox;
+      closest = z;
+    }
+  }
+  return {zone: closest, proximity: closestProx};
+}
+
+// Detect engulfing on CLOSED candles only
+// Returns {found, entryPrice}
+function detectEngulfing(klines, dir) {
+  if (!klines || klines.length < 3) return {found:false, entryPrice:null};
+  // Exclude the last candle (currently forming / open)
+  const closed = klines.slice(0, -1);
+  const prev = closed[closed.length - 2];
+  const curr = closed[closed.length - 1];
+  if (!prev || !curr) return {found:false, entryPrice:null};
+  const pO=parseFloat(prev[1]),pC=parseFloat(prev[4]);
+  const cO=parseFloat(curr[1]),cC=parseFloat(curr[4]);
+  const pHigh=Math.max(pO,pC), pLow=Math.min(pO,pC);
+  const cHigh=Math.max(cO,cC), cLow=Math.min(cO,cC);
+  if (dir === 'LONG') {
+    // Bullish engulf: prev red, curr green, curr body wraps prev body
+    if (pC < pO && cC > cO && cLow <= pLow && cHigh >= pHigh) {
+      return {found:true, entryPrice:cC};
+    }
+  } else {
+    // Bearish engulf: prev green, curr red, curr body wraps prev body
+    if (pC > pO && cC < cO && cLow <= pLow && cHigh >= pHigh) {
+      return {found:true, entryPrice:cC};
+    }
+  }
+  return {found:false, entryPrice:null};
+}
+
+// Volume descending: progressive weakness over last N candles (up to 10)
+// Returns {found, strength} where strength = % of candles showing declining vol
+function detectVolDesc(klines) {
+  if (!klines || klines.length < 5) return {found:false, strength:0};
+  const closed = klines.slice(0, -1);
+  // Look at last 10 candles max
+  const lookback = closed.slice(-10);
+  const vols = lookback.map(k => parseFloat(k[5]));
+  // Count declining pairs
+  let declining = 0;
+  for (let i = 1; i < vols.length; i++) {
+    if (vols[i] < vols[i-1]) declining++;
+  }
+  const strength = declining / (vols.length - 1); // 0 to 1
+  // Consider vol desc if more than 60% of pairs are declining
+  return {found: strength >= 0.6, strength: Math.round(strength * 100)};
+}
+
+// MACD divergence
+function detectMacdDiv(klines, dir) {
+  if (!klines || klines.length < 30) return false;
+  const closed = klines.slice(0, -1);
+  const closes = closed.map(k => parseFloat(k[4]));
+  function emaArr(data, period) {
+    const k = 2/(period+1); const res = [data[0]];
+    for (let i=1;i<data.length;i++) res.push(data[i]*k + res[i-1]*(1-k));
+    return res;
+  }
+  if (closes.length < 26) return false;
+  const ema12 = emaArr(closes, 12);
+  const ema26 = emaArr(closes, 26);
+  const macd = ema12.map((v,i) => v - ema26[i]);
+  const sig = emaArr(macd, 9);
+  const hist = macd.map((v,i) => v - sig[i]);
+  const n = hist.length;
+  if (n < 6) return false;
+  const rH = hist.slice(-5);
+  const rC = closes.slice(-5);
+  if (dir === 'LONG') {
+    return rC[rC.length-1] < Math.min(...rC.slice(0,-1)) && rH[rH.length-1] > Math.min(...rH.slice(0,-1));
+  } else {
+    return rC[rC.length-1] > Math.max(...rC.slice(0,-1)) && rH[rH.length-1] < Math.max(...rH.slice(0,-1));
+  }
+}
+
+// ============================================================
+// MAIN DATA FETCH — per pair
+// ============================================================
+async function fetchPairData(p) {
+  const s = state[p.symbol];
+
+  // Reset
+  s.envolventes=[]; s.envQualities=[]; s.bestQuality=null;
+  s.entryPrice=null; s.volDesc={found:false,strength:0}; s.macdDiv=false;
+  s.zoneProximity='far'; s.activeZone=null; s.detectedZones=[];
+
+  const livePrice = s.price;
+  const obTf = p.tf;
+  const apiObTf = TF_API[obTf] || obTf;
+
+  // === REQUEST 1: OB timeframe klines ===
+  // Reuse for: OB detection + vol desc + MACD + VWAP if obTf is 1h
+  const kOb = await fetchKlines(p.symbol, apiObTf, 100);
+  if (!kOb) return;
+
+  // VWAP: if obTf is 1h reuse kOb, else fetch 1h separately
+  if (obTf === '1h') {
+    s.vwap = calcVwap(kOb);
+  } else {
+    // Only fetch 1h if needed — non-blocking, best effort
+    const k1h = await fetchKlines(p.symbol, '1h', 25);
+    if (k1h) s.vwap = calcVwap(k1h);
+  }
+
+  // Auto-detect OBs from OB TF klines (sync, no extra request)
+  const manualZones = getZonesForPair(p.symbol).map(z=>({...z,source:'manual'}));
+  const autoZones = detectAllOBsFromKlines(kOb, p.dir);
+  autoZones.forEach(z=>z.source='auto');
+  const allZones = [...manualZones, ...autoZones];
+  s.detectedZones = allZones;
+
+  if (!allZones.length) { s.zoneProximity='no-zone'; return; }
+
+  // Find closest zone
+  const {zone:closestZone, proximity:closestProx} = findClosestZone(livePrice, allZones);
+  s.zoneProximity = closestProx;
+  s.activeZone = closestZone;
+
+  // Vol desc + MACD from OB TF klines (already fetched)
+  s.volDesc = detectVolDesc(kOb);
+  s.macdDiv = detectMacdDiv(kOb, p.dir);
+
+  if (closestProx === 'far') return;
+
+  // Only look for engulfing if near or inside OB
+  if (closestProx !== 'inside' && closestProx !== 'near') return;
+
+  // === REQUEST 2 (optional): confirmation TF klines ===
+  // Pick the single most useful confirmation TF (2 levels below OB)
+  // to minimize requests while still detecting the engulfing
+  const confirmTFs = getConfirmTFs(obTf);
+  if (!confirmTFs.length) return;
+
+  const foundTFs=[], foundQualities=[];
+  let entryPrice=null, bestQuality=null;
+
+  // Fetch only the 2 most relevant confirmation TFs (not all 3)
+  const tfsToCheck = confirmTFs.slice(-2); // last 2 = closest to OB = most relevant
+  for (const tf of tfsToCheck) {
+    const kConf = await fetchKlines(p.symbol, TF_API[tf]||tf, 60);
+    if (!kConf) continue;
+    const eng = detectEngulfing(kConf, p.dir);
+    if (eng.found) {
+      const label = TF_LABELS[tf]||tf;
+      foundTFs.push(label);
+      const q = entryQuality(obTf, tf);
+      foundQualities.push({tf:label, quality:q});
+      if (!entryPrice) entryPrice = eng.entryPrice;
+      const obIdx=TF_HIERARCHY.indexOf(obTf);
+      const cfIdx=TF_HIERARCHY.indexOf(tf);
+      const curBestIdx=bestQuality
+        ? TF_HIERARCHY.indexOf(Object.keys(TF_LABELS).find(k=>TF_LABELS[k]===bestQuality.tf)||bestQuality.tf)
+        : 999;
+      if (!bestQuality||(obIdx-cfIdx)>(obIdx-curBestIdx)) bestQuality={tf:label,quality:q};
+    }
+  }
+  s.envolventes=foundTFs; s.envQualities=foundQualities;
+  s.bestQuality=bestQuality; s.entryPrice=entryPrice;
+}
+
+// ============================================================
+// COMPUTE ENTRY STATUS
+// ============================================================
+function computeEntrada(p) {
+  const s = state[p.symbol];
+  const lp = s.price;
+  const ep = s.entryPrice;
+  const prox = s.zoneProximity;
+  const az = s.activeZone;
+  const obTf = (az && az.obTf) || p.tf;
+  const validTFs = getConfirmTFs(obTf);
+  const validTFLabels = validTFs.map(tf => TF_LABELS[tf]||tf).join(', ');
+  const volDesc = s.volDesc && s.volDesc.found;
+  const volStr = s.volDesc ? s.volDesc.strength : 0;
+  const hasMacd = s.macdDiv;
+  const hasTrigger = s.envolventes.length > 0;
+  const tfs = s.envolventes.join(', ');
+  const bq = s.bestQuality;
+  const qualityDesc = bq ? bq.quality.desc : '';
+  const pct = ep && lp ? ((lp-ep)/ep*100) : 0;
+  const movedAway = p.dir==='LONG' ? pct>2 : pct<-2;
+  const vwapOk = s.vwap ? (p.dir==='LONG' ? lp>s.vwap : lp<s.vwap) : false;
+  const zoneLabel = az
+    ? (az.source==='auto'
+        ? `${az.type} [$${az.low.toFixed(4)}–$${az.high.toFixed(4)}] AUTO`
+        : `${az.type} ($${az.range})`)
+    : 'Sin zona detectada';
+
+  // No zones loaded at all
+  if (prox === 'no-zone') return {cls:'nozona', icon:'—', label:'SIN ZONA CARGADA',
+    texto:`No hay ninguna zona cargada para este par en <em>Mis Zonas</em>. <strong style="color:var(--red)">Cargá el OB o Key Level con su rango de precio para activar el scanner.</strong>`};
+
+  // Price too far from any zone
+  if (prox === 'far') return {cls:'nozona', icon:'📍', label:'LEJOS DEL OB',
+    texto:`Zona más cercana: <strong>${zoneLabel}</strong>. Precio actual lejos del OB — distancia mayor al 2%. No hay nada que evaluar todavía. El scanner se activa cuando el precio se acerque al 1%.`};
+
+  // === FASE 1 — Approaching (1-2%): only watch volume ===
+  if (prox === 'approaching') {
+    return {cls:'espera', icon:'👁️', label:'APROXIMÁNDOSE',
+    texto:`Precio acercándose a <strong>${zoneLabel}</strong> — distancia entre 1% y 2%. <br><br>${volDesc
+      ? `Volumen descendente detectado (${volStr}% de debilidad) — el movimiento viene perdiendo fuerza al acercarse al OB. Buen contexto de aproximación.`
+      : `Volumen todavía no muestra debilidad clara. Monitorear si empieza a descender mientras el precio se acerca al OB.`}`};
+  }
+
+  // === FASE 2 — Near (0-1%): vol desc + MACD divergence expected ===
+  if (prox === 'near') {
+    if (!volDesc && !hasMacd) return {cls:'espera', icon:'⚠️', label:'EN ZONA — ATENCIÓN',
+      texto:`Precio dentro del 1% de <strong>${zoneLabel}</strong>. <span style="color:var(--orange);font-weight:600">Zona activa — prestar máxima atención.</span><br><br>Todavía no hay volumen descendente ni divergencia MACD. Monitorear en ${validTFLabels} para la envolvente cuando aparezcan las confirmaciones.`};
+    if (volDesc && !hasMacd) return {cls:'espera', icon:'⚠️', label:'VOL DESC — ESPERAR MACD',
+      texto:`Precio en zona de <strong>${zoneLabel}</strong> con volumen descendente (${volStr}% de debilidad). El movimiento se está debilitando en el OB. <span style="color:var(--orange);font-weight:600">Falta divergencia MACD.</span> Monitorear el histograma.`};
+    if (!volDesc && hasMacd) return {cls:'espera', icon:'⚠️', label:'MACD DIV — ESPERAR VOL',
+      texto:`Precio en zona de <strong>${zoneLabel}</strong> con divergencia MACD activa. <span style="color:var(--orange);font-weight:600">Falta confirmación de volumen descendente.</span>`};
+    if (volDesc && hasMacd) return {cls:'espera', icon:'⏳', label:'ESPERAR ENVOLVENTE',
+      texto:`Precio en zona de <strong>${zoneLabel}</strong>. Volumen descendente (${volStr}%) + divergencia MACD confirmados. <span style="color:var(--cyan);font-weight:600">Falta la envolvente cerrada en: ${validTFLabels}.</span> Cuando aparezca esa vela, es la entrada.`};
+  }
+
+  // === FASE 3 — Inside OB: full setup evaluation ===
+  if (!volDesc && !hasMacd) return {cls:'espera', icon:'🎯', label:'EN EL OB',
+    texto:`Precio <strong>dentro del OB</strong> — <strong>${zoneLabel}</strong>. Esperando volumen descendente y divergencia MACD para confirmar el setup.`};
+
+  if (hasTrigger && volDesc && hasMacd && vwapOk && !movedAway) return {cls:'optima', icon:'✅', label:'ENTRADA ÓPTIMA',
+    texto:`<strong>Setup TTL completo.</strong> Precio dentro de <strong>${zoneLabel}</strong>. Volumen descendente (${volStr}%) + divergencia MACD + envolvente cerrada en <strong>${tfs}</strong> — <span style="color:var(--green)">${qualityDesc}</span> + precio ${p.dir==='LONG'?'sobre':'bajo'} VWAP. <span style="color:var(--green);font-weight:600">Entrada vigente ahora.</span>`};
+
+  if (hasTrigger && volDesc && hasMacd && !vwapOk && !movedAway) return {cls:'valida', icon:'🟢', label:'ENTRADA VÁLIDA',
+    texto:`Precio en OB con envolvente en <strong>${tfs}</strong> — <span style="color:var(--cyan)">${qualityDesc}</span>. Vol desc + MACD. <span style="color:var(--cyan);font-weight:600">VWAP todavía no roto a favor.</span> Entrada válida, no óptima.`};
+
+  if (hasTrigger && volDesc && hasMacd && movedAway) return {cls:'tarde', icon:'🔴', label:'POSIBLE TARDE',
+    texto:`Setup se confirmó en <strong>${tfs}</strong> dentro del OB pero el precio ya corrió +2% desde la entrada <span style="color:var(--yellow)">${fmtPrice(p.symbol,ep)}</span>. <span style="color:var(--red);font-weight:600">Probable que la entrada pasó.</span>`};
+
+  if (!hasTrigger && volDesc && hasMacd) return {cls:'espera', icon:'⏳', label:'ESPERAR ENVOLVENTE',
+    texto:`Precio en OB con vol desc (${volStr}%) + MACD divergencia. <span style="color:var(--orange);font-weight:600">Falta envolvente cerrada en: ${validTFLabels}.</span> Cuando cierre esa vela, es la entrada.`};
+
+  if (hasTrigger && (!volDesc || !hasMacd)) return {cls:'espera', icon:'⚠️', label:'ESPERAR CONFIRMACIÓN',
+    texto:`Envolvente en <strong>${tfs}</strong> dentro del OB pero falta <span style="color:var(--orange);font-weight:600">${!volDesc?'volumen descendente':'divergencia MACD'}</span>. No entrar sin el setup completo.`};
+
+  return {cls:'espera', icon:'🎯', label:'EN EL OB',
+    texto:`Precio dentro de <strong>${zoneLabel}</strong>. Esperando vol descendente + MACD divergencia + envolvente en ${validTFLabels}.`};
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function computeScore(p) {
+  const s = state[p.symbol];
+  const prox = s.zoneProximity;
+  if (prox === 'no-zone' || prox === 'far' || !prox) return 0;
+  const volDesc = s.volDesc && s.volDesc.found;
+  const hasTrigger = s.envolventes.length > 0;
+  const proxScore = {approaching:20, near:40, inside:50}[prox] || 0;
+  const bq = s.bestQuality;
+  let qualityBonus = 0;
+  if (bq) {
+    if (bq.quality.cls === 'optima') qualityBonus = 0;
+    else if (bq.quality.cls === 'valida') qualityBonus = -5;
+    else qualityBonus = -10;
+  }
+  const condScore = [volDesc, s.macdDiv, hasTrigger].filter(Boolean).length;
+  return Math.min(100, Math.max(0, proxScore + Math.round((condScore/3)*50) + qualityBonus));
+}
+
+function computeStatus(p) {
+  const s = state[p.symbol];
+  const prox = s.zoneProximity;
+  const volDesc = s.volDesc && s.volDesc.found;
+  const hasTrigger = s.envolventes.length > 0;
+  if (prox === 'inside' && volDesc && s.macdDiv && hasTrigger) return 'setup';
+  if ((prox === 'inside' || prox === 'near') && (volDesc || s.macdDiv)) return 'watch';
+  if (prox === 'near' || prox === 'approaching' || prox === 'inside') return 'wait';
+  return 'none';
+}
+
+function proximityBadge(prox) {
+  const map = {
+    'inside':     '<span style="background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3);border-radius:3px;padding:1px 6px;font-size:0.6rem;font-weight:700;letter-spacing:1px;">● EN EL OB</span>',
+    'near':       '<span style="background:rgba(0,212,255,0.12);color:var(--cyan);border:1px solid rgba(0,212,255,0.3);border-radius:3px;padding:1px 6px;font-size:0.6rem;font-weight:700;letter-spacing:1px;">◎ CERCA 0-1%</span>',
+    'approaching':'<span style="background:rgba(255,215,0,0.1);color:var(--yellow);border:1px solid rgba(255,215,0,0.3);border-radius:3px;padding:1px 6px;font-size:0.6rem;font-weight:700;letter-spacing:1px;">◌ APROX 1-2%</span>',
+    'far':        '<span style="color:var(--text-muted);font-size:0.6rem;">Lejos del OB</span>',
+    'no-zone':    '<span style="color:var(--red);font-size:0.6rem;">Sin zona</span>',
+  };
+  return map[prox] || map['no-zone'];
+}
+
+function renderScanner() {
+  const tbody = document.getElementById('scanner-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  let setups = 0, watches = 0;
+
+  PAIRS.forEach((p, idx) => {
+    const s = state[p.symbol];
+    const lp = s.price;
+    const score = computeScore(p);
+    const status = computeStatus(p);
+    if (status === 'setup') setups++;
+    if (status === 'watch') watches++;
+
+    const scoreClass = score >= 90?'full':score>=70?'high':score>=40?'mid':'low';
+    const statusLabel = {setup:'Setup ✓',watch:'Observar',wait:'Esperar',none:'Sin setup'}[status];
+    const dirColor = p.dir==='LONG'?'var(--green)':'var(--red)';
+
+    const zoneHtml = ZONE_CHECKS.map(c => {
+      const has = p.zones.includes(c);
+      return `<div class="check-item"><div class="check-icon ${has?'ok':'no'}">${has?'✓':'✗'}</div><span style="color:${has?'var(--text-secondary)':'var(--text-muted)'};font-size:0.66rem">${c}</span></div>`;
+    }).join('');
+
+    const confirmHtml = [
+      {k:'Vol. Desc.', v:s.volDesc},
+      {k:'Div. MACD',  v:s.macdDiv}
+    ].map(({k,v}) =>
+      `<div class="check-item"><div class="check-icon ${v?'ok':'no'}">${v?'✓':'✗'}</div><span style="color:${v?'var(--text-secondary)':'var(--text-muted)'};font-size:0.66rem">${k}</span></div>`
+    ).join('');
+
+    const validConfirmTFs = getConfirmTFs(p.tf);
+    const validLabels = validConfirmTFs.map(tf => TF_LABELS[tf]||tf);
+    const envHtml = s.envolventes.length
+      ? s.envolventes.map(tf => {
+          const isValid = validLabels.includes(tf);
+          return `<span class="env-tf" style="${isValid?'':'opacity:0.5;border-color:rgba(255,136,0,0.4);color:var(--orange)'}">${tf}</span>`;
+        }).join('')
+      : `<span style="color:var(--text-muted);font-size:0.66rem">Esperando en: ${validLabels.join(', ')}</span>`;
+
+    // Quality label from best quality found
+    const bq = s.bestQuality;
+    let envLabel='Sin trigger', envCls='none';
+    if (bq) {
+      envLabel = bq.quality.label;
+      envCls = bq.quality.cls === 'optima' ? 'setup' : bq.quality.cls === 'valida' ? 'watch' : bq.quality.cls === 'espera' ? 'wait' : 'none';
+    } else if (s.envolventes.length >= 3) { envLabel='Mega confluencia'; envCls='setup'; }
+    else if (s.envolventes.length >= 2) { envLabel='Confluencia'; envCls='watch'; }
+
+    const ep = s.entryPrice;
+    const pct = ep&&lp ? ((lp-ep)/ep*100) : 0;
+    const distCls = Math.abs(pct)<1?'near':Math.abs(pct)<3?'mid':'far';
+    const distLabel = ep ? (Math.abs(pct)<1?`En zona (${Math.abs(pct).toFixed(2)}%)`:`${Math.abs(pct).toFixed(2)}% desde entrada`) : '—';
+
+    const vwap = s.vwap;
+    const vwapOk = vwap ? (p.dir==='LONG'?lp>vwap:lp<vwap) : null;
+    const vwapCls = vwapOk===null?'nd':vwapOk?'ok':'ko';
+    const vwapLabel = vwapOk===null?'Calculando...':(vwapOk?(p.dir==='LONG'?'▲ Sobre VWAP':'▼ Bajo VWAP'):(p.dir==='LONG'?'▼ Bajo VWAP':'▲ Sobre VWAP'));
+
+    const {cls, icon, label} = computeEntrada(p);
+    const zonaActiva = p.zones.filter(c=>ZONE_CHECKS.includes(c));
+
+    // Build narrative
+    const dirOp = p.dir==='LONG'?'bajando':'subiendo';
+    const dirDebil = p.dir==='LONG'?'vendedora':'compradora';
+    let narr = `<strong>${p.pair}</strong> en ${p.tf}.<br><br>`;
+    narr += zonaActiva.length
+      ? `Zona activa: <span style="color:var(--cyan);font-weight:600">${zonaActiva.join(' + ')}</span> — zona de ${p.dir==='LONG'?'compra':'venta'}.<br>`
+      : `<span style="color:var(--red)">Sin zona activa</span> — setup no aplica.<br>`;
+    narr += s.volDesc
+      ? `Volumen <strong>descendente</strong> mientras el precio va ${dirOp} — presión ${dirDebil} <span style="color:var(--green)">debilitándose.</span><br>`
+      : `Volumen <span style="color:var(--yellow)">sin descender</span> todavía.<br>`;
+    narr += s.macdDiv
+      ? `MACD muestra <strong>divergencia</strong> a favor del ${p.dir==='LONG'?'rebote alcista':'rebote bajista'}.<br>`
+      : `MACD <span style="color:var(--yellow)">sin divergencia</span> clara todavía.<br>`;
+    const vTFs = getConfirmTFs(p.tf).map(tf => TF_LABELS[tf]||tf);
+    if (s.envolventes.length) {
+      narr += `Envolvente <strong>cerrada</strong> detectada en <span style="color:var(--cyan);font-weight:600">${s.envolventes.join(', ')}</span>`;
+      if (s.bestQuality) narr += ` — <span style="color:var(--green)">${s.bestQuality.quality.desc}</span>`;
+      narr += `.<br>`;
+    } else {
+      narr += `<span style="color:var(--yellow)">Sin envolvente cerrada</span> todavía. TF válidos para OB de ${p.tf.toUpperCase()}: <strong>${vTFs.join(', ')}</strong>.<br>`;
+    }
+    if (ep && lp) {
+      narr += `<br>Precio de entrada (cierre vela envolvente): <span style="color:var(--yellow);font-weight:600">${fmtPrice(p.symbol,ep)}</span>`;
+      narr += ` · Actual: <strong>${fmtPrice(p.symbol,lp)}</strong>`;
+      narr += ` · <span style="color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span> desde entrada.<br>`;
+    }
+    if (vwap) narr += `VWAP diario: <span style="color:var(--purple)">${fmtPrice(p.symbol,vwap)}</span> — precio ${lp>vwap?'<span style="color:var(--green)">por encima</span>':'<span style="color:var(--red)">por debajo</span>'}.<br>`;
+
+    const {texto} = computeEntrada(p);
+    narr += `<br>${texto}`;
+
+    tbody.innerHTML +=
+      `<tr class="data-row" onclick="toggleAnalysis(${idx})">
+        <td>
+          <div class="pair-name">${p.pair} <span class="expand-arrow" id="arrow-${idx}">▼</span></div>
+          <div class="pair-tf">OB ${(s.activeZone?s.activeZone.obTf:p.tf).toUpperCase()}&nbsp;<span style="color:${dirColor};font-size:0.68rem;font-weight:700">${p.dir}</span></div>
+          <div style="margin-top:3px;">${proximityBadge(s.zoneProximity)}</div>
+        </td>
+        <td>
+          <div class="price-live" id="price-${p.symbol}">${lp?fmtPrice(p.symbol,lp):'—'}</div>
+          ${ep?`<div class="price-entry">Entrada: <span>${fmtPrice(p.symbol,ep)}</span></div>`:'<div class="price-entry" style="color:var(--text-muted)">Sin entrada</div>'}
+          ${ep?`<span class="dist-val ${distCls}" id="dist-${p.symbol}">${distLabel}</span>`:''}
+        </td>
+        <td><div class="checklist">${zoneHtml}</div></td>
+        <td><div class="checklist">${confirmHtml}</div></td>
+        <td>${envHtml}<br><span class="alert-tag ${envCls}" style="font-size:0.6rem;margin-top:3px;display:inline-flex;">${envLabel}</span></td>
+        <td>
+          <span class="vwap-pill ${vwapCls}" id="vwap-${p.symbol}" title="${vwap?'VWAP: '+fmtPrice(p.symbol,vwap):''}">${vwapLabel}</span><br>
+          <span class="entry-badge ${cls}" id="entry-${p.symbol}">${icon} ${label}</span>
+        </td>
+        <td>
+          <div class="score-wrap" style="margin-bottom:4px;">
+            <div class="score-bar-bg"><div class="score-bar-fill ${scoreClass}" style="width:${score}%"></div></div>
+            <span class="score-txt ${scoreClass}">${score}%</span>
+          </div>
+          <span class="alert-tag ${status}">${statusLabel}</span>
+        </td>
+      </tr>
+      <tr class="analysis-row" id="ar-${idx}"><td colspan="7" style="padding:0;">
+        <div class="analysis-panel">
+          <div class="analysis-grid">
+            <div class="ablock zona"><div class="ab-title">① Zona activa</div><div class="ab-text">${zonaActiva.join(' + ')||'— Sin zona'}<br><span style="color:var(--text-muted);font-size:0.7rem">TF ${p.tf}</span></div></div>
+            <div class="ablock confirm"><div class="ab-title">② Confirmación</div><div class="ab-text">Vol. desc.: <strong style="color:${s.volDesc?'var(--green)':'var(--red)'}">${s.volDesc?'✓ Sí':'✗ No'}</strong><br>Div. MACD: <strong style="color:${s.macdDiv?'var(--green)':'var(--red)'}">${s.macdDiv?'✓ Sí':'✗ No'}</strong></div></div>
+            <div class="ablock trigger"><div class="ab-title">③ Envolvente · TF válidos: ${validLabels.join(', ')}</div><div class="ab-text">${s.envolventes.length?s.envolventes.join(', '):'Sin envolvente'}<br><span style="font-size:0.7rem;color:${bq?'var(--green)':'var(--text-muted)'}">${bq?bq.quality.desc:('OB en '+p.tf.toUpperCase()+' — esperando trigger')}</span><br><span style="font-size:0.7rem;color:var(--yellow)">${ep?'Entrada: '+fmtPrice(p.symbol,ep):'—'}</span></div></div>
+            <div class="ablock ${cls}"><div class="ab-title">④ Estado</div><div class="ab-text"><strong>${icon} ${label}</strong></div></div>
+          </div>
+          <div class="analysis-narrative">${narr}</div>
+        </div>
+      </td></tr>`;
+  });
+
+  document.getElementById('stat-setups').textContent = setups;
+  document.getElementById('stat-watch').textContent = watches;
+  document.getElementById('setup-count').textContent = setups;
+  // Refresh zones tab with auto-detected zones
+  renderZones();
+}
+
+// ============================================================
+// PRICE UPDATE (tick)
+// ============================================================
+function updatePriceTick(symbol, price) {
+  const s = state[symbol];
+  s.prevPrice = s.price;
+  s.price = price;
+  const el = document.getElementById('price-' + symbol);
+  if (!el) return;
+  el.textContent = fmtPrice(symbol, price);
+  el.classList.remove('up','down');
+  if (s.prevPrice) el.classList.add(price >= s.prevPrice ? 'up' : 'down');
+  setTimeout(() => el.classList.remove('up','down'), 600);
+
+  // Update dist
+  const ep = s.entryPrice;
+  const distEl = document.getElementById('dist-' + symbol);
+  if (distEl && ep) {
+    const pct = (price - ep) / ep * 100;
+    const ap = Math.abs(pct);
+    distEl.className = 'dist-val ' + (ap<1?'near':ap<3?'mid':'far');
+    distEl.textContent = ap<1 ? `En zona (${ap.toFixed(2)}%)` : `${ap.toFixed(2)}% desde entrada`;
+  }
+
+  // Update vwap pill
+  const vwap = s.vwap;
+  const p = PAIRS.find(x => x.symbol === symbol);
+  if (vwap && p) {
+    const ok = p.dir==='LONG' ? price>vwap : price<vwap;
+    const vEl = document.getElementById('vwap-' + symbol);
+    if (vEl) {
+      vEl.className = 'vwap-pill ' + (ok?'ok':'ko');
+      vEl.textContent = ok ? (p.dir==='LONG'?'▲ Sobre VWAP':'▼ Bajo VWAP') : (p.dir==='LONG'?'▼ Bajo VWAP':'▲ Sobre VWAP');
+    }
+    // Update entry badge
+    const eEl = document.getElementById('entry-' + symbol);
+    if (eEl && p) {
+      const {cls, icon, label} = computeEntrada(p);
+      eEl.className = 'entry-badge ' + cls;
+      eEl.textContent = icon + ' ' + label;
+    }
+  }
+}
+
+// ============================================================
+// STARTUP SEQUENCE
+// ============================================================
+let wsActive = false;
+let priceInterval = null;
+
+async function startup() {
+  setNotif('Conectando con Binance...', 'cyan');
+
+  // Step 1: Load all prices via REST (fast, 1 request)
+  const pricesOk = await fetchAllPrices();
+  if (pricesOk) {
+    renderScanner();
+    setNotif('Precios cargados · Calculando VWAP y detectando envolventes...', 'cyan');
+  } else {
+    setNotif('Sin conexión a Binance · Usando datos de ejemplo...', 'cyan');
+    useFallbackPrices();
+    renderScanner();
+  }
+
+  // Step 2: Fetch market data for all pairs (parallel)
+  // Process pairs sequentially to avoid API rate limits
+  for (let i = 0; i < PAIRS.length; i++) {
+    const p = PAIRS[i];
+    setNotif(`Analizando ${p.pair} (${i+1}/${PAIRS.length})...`, 'cyan');
+    await fetchPairData(p);
+    renderScanner();
+    if (i < PAIRS.length - 1) await sleep(300); // pause between pairs
+  }
+
+  const setups = PAIRS.filter(p => computeStatus(p)==='setup').length;
+  setNotif(`${setups} pares con setup activo · VWAP + OBs auto-detectados · Actualiza cada 3 min`, 'green');
+  document.getElementById('live-label').textContent = 'Live';
+
+  // Step 3: Try WebSocket for real-time price ticks
+  tryWebSocket();
+
+  // Step 4: Poll REST prices every 10s as backup, recalculate data every 3min
+  priceInterval = setInterval(async () => {
+    await fetchAllPrices();
+  }, 10000);
+  setInterval(async () => {
+    for (const p of PAIRS) { await fetchPairData(p); }
+    renderScanner();
+    const s = PAIRS.filter(p => computeStatus(p)==='setup').length;
+    setNotif(`${s} pares con setup activo · VWAP + OBs auto-detectados · Actualiza cada 3 min`, 'green');
+  }, 3*60*1000);
+}
+
+function tryWebSocket() {
+  try {
+    const streams = PAIRS.map(p => p.symbol.toLowerCase()+'@ticker').join('/');
+    const ws = new WebSocket('wss://stream.binance.com:9443/stream?streams='+streams);
+    const timeout = setTimeout(() => { ws.close(); }, 6000);
+    ws.onopen = () => {
+      wsActive = true;
+      clearTimeout(timeout);
+      clearInterval(priceInterval); // WS covers prices now
+    };
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.data && msg.data.s) updatePriceTick(msg.data.s, parseFloat(msg.data.c));
+      } catch(err) {}
+    };
+    ws.onerror = () => { clearTimeout(timeout); };
+    ws.onclose = () => { wsActive = false; };
+  } catch(e) {}
+}
+
+function useFallbackPrices() {
+  const base={BTCUSDT:70740,ETHUSDT:2166,XRPUSDT:1.337,SOLUSDT:124.5,BNBUSDT:589.2,DOGEUSDT:0.1542,ADAUSDT:0.6231,AVAXUSDT:21.4};
+  PAIRS.forEach(p => { state[p.symbol].price = base[p.symbol]||0; });
+  setInterval(() => {
+    PAIRS.forEach(p => {
+      const prev = state[p.symbol].price;
+      const change = prev*(Math.random()*0.0016-0.0008);
+      const dec = ['XRPUSDT','ADAUSDT','DOGEUSDT'].includes(p.symbol)?4:2;
+      updatePriceTick(p.symbol, parseFloat((prev+change).toFixed(dec)));
+    });
+  }, 1500);
+}
+
+// ============================================================
+// EXPAND / COLLAPSE ROW
+// ============================================================
+function toggleAnalysis(idx) {
+  const row = document.getElementById('ar-'+idx);
+  const arrow = document.getElementById('arrow-'+idx);
+  const isOpen = row.classList.contains('open');
+  document.querySelectorAll('.analysis-row').forEach(r => r.classList.remove('open'));
+  document.querySelectorAll('.expand-arrow').forEach(a => a.classList.remove('open'));
+  if (!isOpen) { row.classList.add('open'); arrow.classList.add('open'); }
+}
+
+// ============================================================
+// ZONES
+// ============================================================
+const zones = [];
+function addZone() {
+  const pair = document.getElementById('z-pair').value.trim().toUpperCase();
+  const type = document.getElementById('z-type').value;
+  const range = document.getElementById('z-range').value.trim();
+  const obTf = document.getElementById('z-tf').value;
+  if (!pair || !range) return;
+  // Parse low-high from range string e.g. "60000 - 62000"
+  const parts = range.replace(/\s/g,'').split('-');
+  const low = parseFloat(parts[0]);
+  const high = parseFloat(parts[1] || parts[0]);
+  if (isNaN(low) || isNaN(high)) { alert('Rango inválido. Usá formato: 60000 - 62000'); return; }
+  zones.push({pair, type, range, low: Math.min(low,high), high: Math.max(low,high), obTf, ts: new Date().toLocaleTimeString()});
+  document.getElementById('z-pair').value = '';
+  document.getElementById('z-range').value = '';
+  renderZones();
+  document.getElementById('stat-zones').textContent = zones.length;
+}
+
+// Get zones for a specific pair symbol
+function getZonesForPair(symbol) {
+  const pairName = symbol.replace('USDT','/USDT');
+  return zones.filter(z => z.pair === pairName || z.pair === symbol);
+}
+
+// Check price proximity to a zone
+// Returns: 'inside' (0%), 'near' (0-1%), 'approaching' (1-2%), 'far'
+function priceToZone(price, zone) {
+  if (!price || !zone.low || !zone.high) return 'far';
+  if (price >= zone.low && price <= zone.high) return 'inside';
+  const distLow  = Math.abs(price - zone.low)  / zone.low  * 100;
+  const distHigh = Math.abs(price - zone.high) / zone.high * 100;
+  const dist = Math.min(distLow, distHigh);
+  if (dist <= 1) return 'near';
+  if (dist <= 2) return 'approaching';
+  return 'far';
+}
+function renderZones() {
+  const el = document.getElementById('zones-list');
+  // Show manual zones + auto-detected zones per pair
+  let html = '';
+
+  // Manual zones
+  if (zones.length) {
+    const g = {};
+    zones.forEach(z => { if(!g[z.pair]) g[z.pair]=[]; g[z.pair].push(z); });
+    html += '<div style="font-size:0.65rem;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.5rem;">Zonas Manuales</div>';
+    html += Object.entries(g).map(([pair,zs]) =>
+      `<div class="zone-panel">
+        <div class="zone-header"><span style="font-family:Orbitron,monospace;font-size:0.95rem;font-weight:700;">${pair}</span></div>
+        ${zs.map(z=>`<div class="zone-row">
+          <span style="font-size:0.68rem;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;width:90px;">${z.type}</span>
+          <span style="font-family:Orbitron,monospace;font-size:0.75rem;">$${z.range}</span>
+          <span style="font-size:0.68rem;color:var(--cyan);">OB ${(z.obTf||'—').toUpperCase()}</span>
+          <span style="font-size:0.68rem;color:var(--text-muted);">${z.ts}</span>
+        </div>`).join('')}
+      </div>`
+    ).join('');
+  }
+
+  // Auto-detected zones from state
+  const autoEntries = PAIRS.map(p => {
+    const s = state[p.symbol];
+    const auto = (s.detectedZones||[]).filter(z => z.source === 'auto');
+    if (!auto.length) return '';
+    return `<div class="zone-panel" style="border-color:rgba(192,132,252,0.2);">
+      <div class="zone-header">
+        <span style="font-family:Orbitron,monospace;font-size:0.85rem;font-weight:700;">${p.pair}</span>
+        <span style="font-size:0.6rem;color:var(--purple);letter-spacing:1px;">AUTO-DETECTADO</span>
+      </div>
+      ${auto.map(z=>`<div class="zone-row">
+        <span style="font-size:0.68rem;letter-spacing:1px;color:var(--purple);text-transform:uppercase;width:90px;">${z.type}</span>
+        <span style="font-family:Orbitron,monospace;font-size:0.75rem;">$${z.low.toFixed(4)} – $${z.high.toFixed(4)}</span>
+        <span style="font-size:0.68rem;color:var(--text-muted);">TF ${p.tf.toUpperCase()}</span>
+        <span style="font-size:0.68rem;color:var(--purple);">Auto</span>
+      </div>`).join('')}
+    </div>`;
+  }).filter(Boolean).join('');
+
+  if (autoEntries) {
+    html += '<div style="font-size:0.65rem;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin:1rem 0 0.5rem;">Zonas Auto-detectadas</div>';
+    html += autoEntries;
+  }
+
+  if (!html) {
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;padding:1rem 0;">Las zonas auto-detectadas aparecerán después de que el scanner cargue los datos de mercado.</p>';
+    return;
+  }
+  el.innerHTML = html;
+}
+
+// ============================================================
+// TABS / LOGIN / LOGOUT
+// ============================================================
+function switchTab(tab) {
+  ['scanner','zonas','setup'].forEach(t => {
+    document.getElementById('tab-'+t)?.classList.toggle('active', t===tab);
+    document.getElementById('content-'+t)?.classList.toggle('active', t===tab);
+  });
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  const map = {scanner:0, zonas:1, setup:3};
+  const items = document.querySelectorAll('.sidebar-item');
+  if (map[tab]!==undefined && items[map[tab]]) items[map[tab]].classList.add('active');
+}
+
+function doLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  if (!user) return;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('terminal-screen').style.display = 'block';
+  document.getElementById('display-user').textContent = user;
+  renderScanner();
+  startup();
+}
+
+function doLogout() {
+  wsActive = false;
+  clearInterval(priceInterval);
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('terminal-screen').style.display = 'none';
+}
+
+document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+</script>
+
+
+</body></html>
