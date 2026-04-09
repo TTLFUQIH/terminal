@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- saved from url=(0053)file:///C:/Users/nahue/Downloads/ttl-terminal_20.html -->
+<!-- saved from url=(0053)file:///C:/Users/nahue/Downloads/ttl-terminal_21.html -->
 <html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TTL Terminal</title>
-<link href="./TTL Terminal web_files/css2" rel="stylesheet">
+<link href="./TTL Terminal_files/css2" rel="stylesheet">
 <style>
 :root{--cyan:#00d4ff;--cyan-dim:#0099bb;--blue-dark:#030d1a;--blue-mid:#050f20;--blue-surface:#071628;--blue-card:#0a1e35;--blue-border:#0d2640;--text-primary:#e8f4ff;--text-secondary:#7ab8d4;--text-muted:#3d6b85;--green:#00ff88;--red:#ff3355;--yellow:#ffd700;--orange:#ff8800;--purple:#c084fc;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -176,7 +176,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 <div class="wrap">
 
 <!-- LOGIN -->
-<div id="login-screen" style="display: none;">
+<div id="login-screen">
   <div class="login-box">
     <span class="ttl-text">TTL</span>
     <span class="login-sub">Trade To Live · Terminal</span>
@@ -186,17 +186,17 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <label class="login-label">Contraseña</label>
     <input class="login-input" type="password" id="login-pass" placeholder="••••••••">
     <button class="login-btn" onclick="doLogin()">Ingresar</button>
-    <p class="login-note">Acceso exclusivo para referidos de BingX<br><a href="file:///C:/Users/nahue/Downloads/ttl-terminal_20.html#">¿No tenés acceso? Registrate aquí</a></p>
+    <p class="login-note">Acceso exclusivo para referidos de BingX<br><a href="file:///C:/Users/nahue/Downloads/ttl-terminal_21.html#">¿No tenés acceso? Registrate aquí</a></p>
   </div>
 </div>
 
 <!-- TERMINAL -->
-<div id="terminal-screen" style="display: block;">
+<div id="terminal-screen">
   <div class="topbar">
     <div class="topbar-logo">TTL <span>TERMINAL · v0.3</span></div>
     <div class="topbar-right">
       <div class="live-badge"><div class="live-dot"></div><span id="live-label">Cargando...</span></div>
-      <div class="topbar-user" id="display-user">asd</div>
+      <div class="topbar-user" id="display-user"></div>
       <button class="logout-btn" onclick="doLogout()">Salir</button>
     </div>
   </div>
@@ -213,8 +213,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="content">
       <div class="stats-row">
         <div class="stat-card"><div class="stat-label">Pares escaneados</div><div class="stat-value">8</div><div class="stat-sub">Crypto Futures BingX</div></div>
-        <div class="stat-card green"><div class="stat-label">Setup completo</div><div class="stat-value" id="stat-setups">0</div><div class="stat-sub">Zona + Confirm + Trigger</div></div>
-        <div class="stat-card yellow"><div class="stat-label">En observación</div><div class="stat-value" id="stat-watch">0</div><div class="stat-sub">Faltan condiciones</div></div>
+        <div class="stat-card green"><div class="stat-label">Setup completo</div><div class="stat-value" id="stat-setups">—</div><div class="stat-sub">Zona + Confirm + Trigger</div></div>
+        <div class="stat-card yellow"><div class="stat-label">En observación</div><div class="stat-value" id="stat-watch">—</div><div class="stat-sub">Faltan condiciones</div></div>
         <div class="stat-card purple"><div class="stat-label">Zonas cargadas</div><div class="stat-value" id="stat-zones">0</div><div class="stat-sub">OB / Key Level manuales</div></div>
       </div>
 
@@ -226,7 +226,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
       <!-- SCANNER -->
       <div class="tab-content active" id="content-scanner">
-        <div class="notif-bar" style="border-color: rgba(0, 212, 255, 0.2);"><div class="notif-dot" style="background: var(--cyan);"></div><span id="notif-text">Analizando BTC/USDT (1/8)...</span></div>
+        <div class="notif-bar"><div class="notif-dot"></div><span id="notif-text">Conectando con Binance...</span></div>
         <div class="section-header"><span class="section-title">Resultado del Scan</span><div class="section-line"></div></div>
         <table class="scanner-table">
           <thead><tr>
@@ -239,7 +239,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <!-- ZONAS -->
       <div class="tab-content" id="content-zonas">
         <div class="section-header"><span class="section-title">Zonas Cargadas</span><div class="section-line"></div></div>
-        <div id="zones-list"><p style="color:var(--text-muted);font-size:0.85rem;padding:1rem 0;">Las zonas auto-detectadas aparecerán después de que el scanner cargue los datos de mercado.</p></div>
+        <div id="zones-list"><p style="color:var(--text-muted);font-size:0.85rem;padding:1rem 0;">Todavía no cargaste zonas.</p></div>
         <div class="add-zone-form">
           <div class="section-header" style="margin-bottom:1rem;"><span class="section-title">Agregar Zona</span></div>
           <div class="form-row">
@@ -369,7 +369,7 @@ async function apiFetch(url) {
 
 // Fetch all prices at once (1 request)
 async function fetchAllPrices() {
-  const data = await apiFetch('https://api.binance.com/api/v3/ticker/price');
+  const data = await apiFetch('/api/prices');
   if (!Array.isArray(data)) return false;
   const syms = new Set(PAIRS.map(p => p.symbol));
   data.forEach(t => {
@@ -384,7 +384,7 @@ async function fetchAllPrices() {
 
 // Fetch klines
 async function fetchKlines(symbol, interval, limit) {
-  const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const url = `/api/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
   const data = await apiFetch(url);
   return Array.isArray(data) ? data : null;
 }
