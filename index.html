@@ -431,69 +431,62 @@ function calcVwap(klines) {
 // OB AUTO-DETECTION
 // ============================================================
 
-// Detect OB Extremo
-// Finds local extremes (swing highs/lows) that had a significant move after them
-// Returns array of OB Extremo zones
-function detectOBExtremo(klines, dir) {
+// Minimum move threshold per timeframe for OB Extremo detection
+const OB_MIN_MOVE = {
+  '1m':0.003,'3m':0.004,'5m':0.005,'15m':0.007,'30m':0.010,
+  '1h':0.012,'4h':0.020,'1d':0.035,'1w':0.050,'1M':0.070
+};
+
+// Detect OB Extremo — only the absolute high and low of the visible range
+// Max 1 SHORT (highest close) + 1 LONG (lowest close)
+function detectOBExtremo(klines, dir, tf) {
   if (!klines || klines.length < 10) return [];
   const closed = klines.slice(0, -1);
-  const window = closed.slice(-80); // look at last 80 candles
-  const results = [];
-  const MIN_MOVE = 0.003; // 0.3% minimum move after extreme
+  const window = closed.slice(-80);
+  const minMove = OB_MIN_MOVE[tf] || OB_MIN_MOVE[(tf||'').toLowerCase()] || 0.010;
 
   if (dir === 'SHORT') {
-    // Find swing highs: candle whose close is higher than surrounding candles
-    for (let i = 2; i < window.length - 2; i++) {
-      const c = parseFloat(window[i][4]);
-      const prev1 = parseFloat(window[i-1][4]);
-      const prev2 = parseFloat(window[i-2][4]);
-      const next1 = i+1 < window.length ? parseFloat(window[i+1][4]) : c;
-      const next2 = i+2 < window.length ? parseFloat(window[i+2][4]) : c;
-      // Is this a local high close?
-      if (c > prev1 && c > prev2 && c >= next1 && c >= next2) {
-        // Verify meaningful move down after
-        const after = window.slice(i+1, Math.min(i+8, window.length));
-        const minAfter = after.length ? Math.min(...after.map(k=>parseFloat(k[4]))) : c;
-        if ((c - minAfter) / c >= MIN_MOVE) {
-          const eHigh = parseFloat(window[i][2]); // wick = liquidity
-          results.push({
-            type: 'OB Extremo', dir,
-            low: c, high: eHigh,
-            closePrice: c, wickPrice: eHigh,
-            candleTime: parseInt(window[i][0]),
-            idx: i
-          });
-        }
-      }
-    }
+    // Find absolute highest close in window
+    let maxClose = -Infinity, maxIdx = -1;
+    window.forEach((k,i) => {
+      const c = parseFloat(k[4]);
+      if (c > maxClose) { maxClose = c; maxIdx = i; }
+    });
+    if (maxIdx < 0 || maxIdx >= window.length - 2) return [];
+    const eClose = parseFloat(window[maxIdx][4]);
+    const eHigh  = parseFloat(window[maxIdx][2]);
+    // Verify meaningful drop after
+    const after = window.slice(maxIdx+1);
+    if (!after.length) return [];
+    const minAfter = Math.min(...after.map(k=>parseFloat(k[4])));
+    if ((eClose - minAfter) / eClose < minMove) return [];
+    return [{
+      type:'OB Extremo', dir,
+      low: eClose, high: eHigh,
+      closePrice: eClose, wickPrice: eHigh,
+      candleTime: parseInt(window[maxIdx][0]), idx: maxIdx
+    }];
   } else {
-    // Find swing lows: candle whose close is lower than surrounding candles
-    for (let i = 2; i < window.length - 2; i++) {
-      const c = parseFloat(window[i][4]);
-      const prev1 = parseFloat(window[i-1][4]);
-      const prev2 = parseFloat(window[i-2][4]);
-      const next1 = i+1 < window.length ? parseFloat(window[i+1][4]) : c;
-      const next2 = i+2 < window.length ? parseFloat(window[i+2][4]) : c;
-      // Is this a local low close?
-      if (c < prev1 && c < prev2 && c <= next1 && c <= next2) {
-        // Verify meaningful move up after
-        const after = window.slice(i+1, Math.min(i+8, window.length));
-        const maxAfter = after.length ? Math.max(...after.map(k=>parseFloat(k[4]))) : c;
-        if ((maxAfter - c) / c >= MIN_MOVE) {
-          const eLow = parseFloat(window[i][3]); // wick = liquidity
-          results.push({
-            type: 'OB Extremo', dir,
-            low: eLow, high: c,
-            closePrice: c, wickPrice: eLow,
-            candleTime: parseInt(window[i][0]),
-            idx: i
-          });
-        }
-      }
-    }
+    // Find absolute lowest close in window
+    let minClose = Infinity, minIdx = -1;
+    window.forEach((k,i) => {
+      const c = parseFloat(k[4]);
+      if (c < minClose) { minClose = c; minIdx = i; }
+    });
+    if (minIdx < 0 || minIdx >= window.length - 2) return [];
+    const eClose = parseFloat(window[minIdx][4]);
+    const eLow   = parseFloat(window[minIdx][3]);
+    const after = window.slice(minIdx+1);
+    if (!after.length) return [];
+    const maxAfter = Math.max(...after.map(k=>parseFloat(k[4])));
+    if ((maxAfter - eClose) / eClose < minMove) return [];
+    return [{
+      type:'OB Extremo', dir,
+      low: eLow, high: eClose,
+      closePrice: eClose, wickPrice: eLow,
+      candleTime: parseInt(window[minIdx][0]), idx: minIdx
+    }];
   }
-  // Return last 3 most recent valid OB Extremos
-  return results.slice(-3);
 }
 
 // Detect OB Oculto
@@ -621,7 +614,7 @@ function isOBMitigated(closed, zone, afterIdx) {
   return false;
 }
 
-function detectAllOBsFromKlines(klines, dir) {
+function detectAllOBsFromKlines(klines, dir, _tf) {
   if (!klines) return [];
   const closed = klines.slice(0, -1);
 
@@ -629,7 +622,7 @@ function detectAllOBsFromKlines(klines, dir) {
   const dirsToCheck = dir ? [dir] : ['LONG','SHORT'];
   let all = [];
   for (const d of dirsToCheck) {
-    all = [...all, ...detectOBExtremo(klines, d), ...detectOBOculto(klines, d)];
+    all = [...all, ...detectOBExtremo(klines, d, _tf), ...detectOBOculto(klines, d)];
   }
   all = [...all, ...detectKeyLevels(klines)];
 
@@ -831,7 +824,7 @@ async function fetchPairData(p) {
   // Auto-detect OBs from OB TF klines (sync, no extra request)
   const manualZones = getZonesForPair(p.symbol).map(z=>({...z,source:'manual'}));
   // Use neutral direction for OB detection — direction determined per-zone later
-  const autoZones = detectAllOBsFromKlines(kOb, null);
+  const autoZones = detectAllOBsFromKlines(kOb, null, obTf);
   autoZones.forEach(z=>z.source='auto');
   const allZones = [...manualZones, ...autoZones];
   s.detectedZones = allZones;
