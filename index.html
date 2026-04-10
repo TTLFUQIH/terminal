@@ -513,52 +513,78 @@ function detectOBOculto(klines, dir) {
     if (kRange === 0 || kBodySize / kRange < 0.4) continue;
 
     if (dir === 'SHORT') {
-      // SHORT OB Oculto: impulse is a BIG GREEN candle going UP, breaking resistance
-      // then price comes back down and closes below the resistance level (C1)
-      if (kClose <= kOpen) continue; // need green candle
-      const prevClose = parseFloat(window[i-1][4]);
-      // Impulse must open below prevClose and close above it (breaks resistance)
-      if (!(kOpen < prevClose && kClose > prevClose)) continue;
-      const firstClose = prevClose; // C1 = closest close from above before impulse
-      // Find C2: first close BELOW C1 after the impulse (retest from below)
-      for (let j = i + 1; j < Math.min(i + 50, window.length); j++) {
+      // SHORT OB Oculto:
+      // 1. C1 = minimum close in recent candles (local low close)
+      // 2. Impulse = RED candle that breaks DOWN through C1
+      // 3. Price returns after time and closes INSIDE the impulse red body (between impClose and impOpen)
+      // 4. C2 = that retest close inside the impulse body
+      // OB = between C2 (low) and C1 (high)
+      if (kClose >= kOpen) continue; // need RED impulse candle
+      // C1 = lowest close in the 3 candles before the impulse
+      let c1 = Infinity;
+      for (let back = i-3; back < i; back++) {
+        const c = parseFloat(window[back][4]);
+        if (c < c1) c1 = c;
+      }
+      if (c1 === Infinity) continue;
+      // Impulse must open above C1 and close below C1 (breaks minimum)
+      if (!(kOpen > c1 && kClose < c1)) continue;
+      // Find C2: price returns and closes inside impulse body (between kClose and kOpen)
+      // Must be at least 3 candles after impulse
+      for (let j = i + 3; j < Math.min(i + 100, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
-        if (jClose < firstClose) {
-          if ((firstClose - jClose) / firstClose < 0.001) continue;
+        if (jClose > kClose && jClose < c1) {
+          const zoneSize = (c1 - jClose) / c1;
+          if (zoneSize < 0.001 || zoneSize > 0.10) break;
           results.push({
             type: 'OB Oculto', dir,
-            low: jClose, high: firstClose,
-            closePrice: firstClose, retestClose: jClose,
+            low: jClose, high: c1,
+            closePrice: c1, retestClose: jClose,
             candleTime: parseInt(window[i][0]),
             endTime: parseInt(window[j][0]),
             breakIdx: i, retestIdx: j, idx: i
           });
           break;
         }
+        // Price went too far down — no retest coming
+        if (jClose < kClose * 0.99) break;
       }
     } else {
-      // LONG OB Oculto: impulse is a BIG RED candle going DOWN, breaking support
-      // then price comes back up and closes above the support level (C1)
-      if (kClose >= kOpen) continue; // need red candle
-      const prevClose = parseFloat(window[i-1][4]);
-      // Impulse must open above prevClose and close below it (breaks support)
-      if (!(kOpen > prevClose && kClose < prevClose)) continue;
-      const firstClose = prevClose; // C1 = closest close from below before impulse
-      // Find C2: first close ABOVE C1 after the impulse (retest from above)
-      for (let j = i + 1; j < Math.min(i + 50, window.length); j++) {
+      // LONG OB Oculto:
+      // 1. C1 = maximum close in recent candles (local high close)
+      // 2. Impulse = GREEN candle that breaks UP through C1
+      // 3. Price returns after time and closes INSIDE the impulse green body (between impOpen and impClose)
+      // 4. C2 = that retest close inside the impulse body
+      // OB = between C1 (low) and C2 (high)
+      if (kClose <= kOpen) continue; // need GREEN impulse candle
+      // C1 = highest close in the 3 candles before the impulse
+      let c1 = -Infinity;
+      for (let back = i-3; back < i; back++) {
+        const c = parseFloat(window[back][4]);
+        if (c > c1) c1 = c;
+      }
+      if (c1 === -Infinity) continue;
+      // Impulse must open below C1 and close above C1 (breaks maximum)
+      if (!(kOpen < c1 && kClose > c1)) continue;
+      // Find C2: price returns and closes inside impulse body (between c1 and kClose)
+      // Must be at least 3 candles after impulse
+      for (let j = i + 3; j < Math.min(i + 100, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
-        if (jClose > firstClose) {
-          if ((jClose - firstClose) / firstClose < 0.001) continue;
+        if (jClose > c1 && jClose < kClose) {
+          const zoneSize = (jClose - c1) / c1;
+          if (zoneSize < 0.001 || zoneSize > 0.10) break;
           results.push({
             type: 'OB Oculto', dir,
-            low: firstClose, high: jClose,
-            closePrice: firstClose, retestClose: jClose,
+            low: c1, high: jClose,
+            closePrice: c1, retestClose: jClose,
             candleTime: parseInt(window[i][0]),
             endTime: parseInt(window[j][0]),
             breakIdx: i, retestIdx: j, idx: i
           });
           break;
         }
+        // Price went too far up — no retest coming
+        if (jClose > kClose * 1.01) break;
       }
     }
   }
