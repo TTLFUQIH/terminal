@@ -842,12 +842,17 @@ async function fetchPairData(p) {
   const autoDir = detectDirection(kOb, closestZone.high, closestZone.low);
   s.detectedDir = autoDir; // store detected direction in state
 
-  // Vol desc + MACD using detected direction
+  // Vol desc: useful as early warning even when approaching
   s.volDesc = detectVolDesc(kOb);
-  s.macdDiv = detectMacdDiv(kOb, autoDir);
 
-  // Only look for engulfing if near or inside OB
-  if (closestProx !== 'inside' && closestProx !== 'near') return;
+  // MACD + engulfing: ONLY when price is literally inside the OB range
+  // "near" and "approaching" = price hasn't touched the OB yet
+  if (closestProx !== 'inside') {
+    s.macdDiv = false;
+    return;
+  }
+
+  s.macdDiv = detectMacdDiv(kOb, autoDir);
 
   // === REQUEST 2: confirmation TF klines — engulfing must be RECENT (last 3 candles) ===
   const confirmTFs = getConfirmTFs(obTf);
