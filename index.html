@@ -1343,90 +1343,51 @@ async function changeChartTf(idx, tf, event) {
   if (p) await renderChart(idx, p.symbol, tf);
 }
 
-function drawOBRects(chart, container, zones, candleData) {
-  // Remove existing canvas overlay if any
-  const existing = container.querySelector('.ob-canvas');
-  if (existing) existing.remove();
-
-  const canvas = document.createElement('canvas');
-  canvas.className = 'ob-canvas';
-  canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;';
-  canvas.width = container.clientWidth;
-  canvas.height = container.clientHeight;
-  container.style.position = 'relative';
-  container.appendChild(canvas);
-
-  const ctx = canvas.getContext('2d');
-  const ts = chart.timeScale();
-  const cs = chart.priceScale('right');
-
+function drawOBRects(chart, candleSeries, zones) {
+  // Use Lightweight Charts native price lines for OB borders
+  // and a histogram series trick for the fill
   zones.forEach(z => {
+    const isExtremo = z.type === 'OB Extremo';
+    const borderColor = isExtremo ? 'rgba(255,60,60,0.95)' : 'rgba(0,212,255,0.9)';
+    const fillColor   = isExtremo ? 'rgba(255,60,60,0.2)'  : 'rgba(0,212,255,0.18)';
+    const label = isExtremo ? 'OB EXT' : 'OB OCU';
+
+    // Top border
+    candleSeries.createPriceLine({
+      price: z.high,
+      color: borderColor,
+      lineWidth: 2,
+      lineStyle: 0,
+      axisLabelVisible: true,
+      title: label,
+    });
+    // Bottom border
+    candleSeries.createPriceLine({
+      price: z.low,
+      color: borderColor,
+      lineWidth: 2,
+      lineStyle: 0,
+      axisLabelVisible: false,
+      title: '',
+    });
+
+    // Fill using histogram series with fixed value at zone midpoint
+    // This creates a visible band between high and low
     try {
-      const isExtremo = z.type === 'OB Extremo';
-      const fillColor = isExtremo ? 'rgba(255,60,60,0.18)' : 'rgba(0,212,255,0.15)';
-      const strokeColor = isExtremo ? 'rgba(255,60,60,0.9)' : 'rgba(0,212,255,0.85)';
+      const mid = (z.high + z.low) / 2;
+      const halfH = (z.high - z.low) / 2;
 
-      // Convert price to Y pixel
-      const yHigh = chart.priceToCoordinate ? chart.priceToCoordinate(z.high) : null;
-      const yLow  = chart.priceToCoordinate ? chart.priceToCoordinate(z.low)  : null;
-
-      // Use series coordinate conversion via candleSeries workaround
-      // Find y coords using the chart pane
-      const pane = container.querySelector('canvas:not(.ob-canvas)');
-      if (!pane) return;
-
-      // Get price range visible
-      const logicalRange = ts.getVisibleLogicalRange();
-      if (!logicalRange) return;
-
-      // Convert prices to coordinates using chart API
-      const highCoord = chart.priceScale('right').priceToCoordinate
-        ? null : null; // Not available directly
-
-      // Fallback: use percentage of visible price range
-      const visibleBars = candleData.slice(
-        Math.max(0, Math.floor(logicalRange.from)),
-        Math.min(candleData.length, Math.ceil(logicalRange.to) + 1)
-      );
-      if (!visibleBars.length) return;
-
-      const allHighs = visibleBars.map(b => b.high);
-      const allLows  = visibleBars.map(b => b.low);
-      const priceMax = Math.max(...allHighs) * 1.002;
-      const priceMin = Math.min(...allLows)  * 0.998;
-      const priceRange = priceMax - priceMin;
-      if (priceRange <= 0) return;
-
-      const chartH = canvas.height - 30; // leave space for time axis
-      const chartW = canvas.width  - 65; // leave space for price axis
-
-      const toY = p => chartH - ((p - priceMin) / priceRange) * chartH;
-      const y1 = toY(z.high);
-      const y2 = toY(z.low);
-      const rectH = Math.abs(y2 - y1);
-      const rectY = Math.min(y1, y2);
-
-      // Draw filled rectangle across full width
-      ctx.fillStyle = fillColor;
-      ctx.fillRect(0, rectY, chartW, rectH);
-
-      // Draw border lines (top and bottom)
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, rectY);
-      ctx.lineTo(chartW, rectY);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, rectY + rectH);
-      ctx.lineTo(chartW, rectY + rectH);
-      ctx.stroke();
-
-      // Draw label
-      ctx.fillStyle = strokeColor;
-      ctx.font = 'bold 10px Rajdhani, sans-serif';
-      ctx.fillText(isExtremo ? 'OB EXT' : 'OB OCU', 6, rectY + rectH - 4);
-
+      // Add a band series that fills the zone
+      const bandSeries = chart.addHistogramSeries({
+        color: fillColor,
+        priceFormat: { type: 'price' },
+        priceScaleId: 'right',
+        priceLineVisible: false,
+        lastValueVisible: false,
+        base: z.low,
+      });
+      // Set data spanning all visible candles with height = zone height
+      bandSeries.setData([{time: 0, value: z.high - z.low}]);
     } catch(e) {}
   });
 }
@@ -1514,14 +1475,14 @@ async function renderChart(idx, symbol, tf) {
     vwapSeries.setData(vwapData);
   }
 
-  // Draw OB zones using canvas overlay
+  // Draw OB zones
   const zones = s ? (s.detectedZones || []) : [];
 
   // Key Level = dotted price line
   zones.filter(z => z.type === 'Key Level').forEach(z => {
     candleSeries.createPriceLine({
       price: z.level || z.low,
-      color: 'rgba(255,215,0,0.9)',
+      color: 'rgba(255,215,0,0.95)',
       lineWidth: 1,
       lineStyle: 1,
       axisLabelVisible: true,
@@ -1529,11 +1490,51 @@ async function renderChart(idx, symbol, tf) {
     });
   });
 
-  // OB Extremo + OB Oculto = draw as canvas rectangles after chart renders
+  // OB Extremo + OB Oculto = filled rectangle using histogram trick
   const obZones = zones.filter(z => z.type !== 'Key Level');
-  if (obZones.length) {
-    setTimeout(() => drawOBRects(chart, container, obZones, candleData), 100);
-  }
+  obZones.forEach(z => {
+    const isExtremo = z.type === 'OB Extremo';
+    const borderColor = isExtremo ? '#ff3c3c' : '#00d4ff';
+    const fillColor   = isExtremo ? 'rgba(255,60,60,0.2)' : 'rgba(0,212,255,0.18)';
+    const label = isExtremo ? 'OB EXT' : 'OB OCU';
+
+    // Top border line
+    candleSeries.createPriceLine({
+      price: z.high,
+      color: borderColor,
+      lineWidth: 2,
+      lineStyle: 0,
+      axisLabelVisible: true,
+      title: label,
+    });
+    // Bottom border line
+    candleSeries.createPriceLine({
+      price: z.low,
+      color: borderColor,
+      lineWidth: 2,
+      lineStyle: 0,
+      axisLabelVisible: false,
+      title: '',
+    });
+
+    // Fill: use a line series with crosshair disabled to simulate fill
+    // by creating many thin lines between high and low
+    try {
+      const steps = 8;
+      const step = (z.high - z.low) / steps;
+      for (let i = 1; i < steps; i++) {
+        const price = z.low + step * i;
+        candleSeries.createPriceLine({
+          price,
+          color: fillColor,
+          lineWidth: 1,
+          lineStyle: 0,
+          axisLabelVisible: false,
+          title: '',
+        });
+      }
+    } catch(e) {}
+  });
 
   // Entry price line
   if (s && s.entryPrice) {
@@ -1560,20 +1561,11 @@ async function renderChart(idx, symbol, tf) {
   }
 
   chart.timeScale().fitContent();
-  chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-    const s2 = state[symbol];
-    const zones2 = s2 ? (s2.detectedZones||[]).filter(z=>z.type!=='Key Level') : [];
-    if (zones2.length) drawOBRects(chart, container, zones2, candleData);
-  });
+  // No redraw needed — price lines are native to chart
 
   // Handle resize
   const resizeObs = new ResizeObserver(() => {
-    if (container.clientWidth > 0) {
-      chart.resize(container.clientWidth, 280);
-      const s2 = state[symbol];
-      const zones2 = s2 ? (s2.detectedZones||[]).filter(z=>z.type!=='Key Level') : [];
-      if (zones2.length) setTimeout(() => drawOBRects(chart, container, zones2, candleData), 50);
-    }
+    if (container.clientWidth > 0) chart.resize(container.clientWidth, 280);
   });
   resizeObs.observe(container);
 
