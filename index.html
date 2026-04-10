@@ -1137,7 +1137,9 @@ function renderScanner() {
     const dirColor = activeDir==='LONG'?'var(--green)':'var(--red)';
 
     const zoneHtml = ZONE_CHECKS.map(c => {
-      const has = p.zones.includes(c);
+      // Check if there's a detected zone of this type near the current price
+      const detectedZones = s.detectedZones || [];
+      const has = detectedZones.some(z => z.type === c);
       return `<div class="check-item"><div class="check-icon ${has?'ok':'no'}">${has?'✓':'✗'}</div><span style="color:${has?'var(--text-secondary)':'var(--text-muted)'};font-size:0.66rem">${c}</span></div>`;
     }).join('');
 
