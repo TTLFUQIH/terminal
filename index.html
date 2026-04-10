@@ -875,7 +875,7 @@ async function fetchPairData(p) {
     if (!kConf) continue;
 
     // Only check last 3 closed candles — engulfing must be recent
-    const eng = detectEngulfingRecent(kConf, autoDir, 3);
+    const eng = detectEngulfingRecent(kConf, autoDir, 2);
     if (eng.found) {
       const label = TF_LABELS[tf]||tf;
       // Avoid duplicate labels
@@ -1022,8 +1022,8 @@ function computeStatus(p) {
 function proximityBadge(prox) {
   const map = {
     'inside':     '<span style="background:rgba(0,255,136,0.15);color:var(--green);border:1px solid rgba(0,255,136,0.3);border-radius:3px;padding:1px 6px;font-size:0.6rem;font-weight:700;letter-spacing:1px;">● EN EL OB</span>',
-    'near':       '<span style="background:rgba(0,212,255,0.12);color:var(--cyan);border:1px solid rgba(0,212,255,0.3);border-radius:3px;padding:1px 6px;font-size:0.6rem;font-weight:700;letter-spacing:1px;">◎ CERCA 0-1%</span>',
-    'approaching':'<span style="background:rgba(255,215,0,0.1);color:var(--yellow);border:1px solid rgba(255,215,0,0.3);border-radius:3px;padding:1px 6px;font-size:0.6rem;font-weight:700;letter-spacing:1px;">◌ APROX 1-2%</span>',
+    'near':       '<span style="background:rgba(0,212,255,0.12);color:var(--cyan);border:1px solid rgba(0,212,255,0.3);border-radius:3px;padding:1px 6px;font-size:0.6rem;font-weight:700;letter-spacing:1px;">◎ CERCA 0-0.5%</span>',
+    'approaching':'<span style="background:rgba(255,215,0,0.1);color:var(--yellow);border:1px solid rgba(255,215,0,0.3);border-radius:3px;padding:1px 6px;font-size:0.6rem;font-weight:700;letter-spacing:1px;">◌ APROX 0.5-1%</span>',
     'far':        '<span style="color:var(--text-muted);font-size:0.6rem;">Lejos del OB</span>',
     'no-zone':    '<span style="color:var(--red);font-size:0.6rem;">Sin zona</span>',
   };
@@ -1494,15 +1494,16 @@ function getZonesForPair(symbol) {
 }
 
 // Check price proximity to a zone
-// Returns: 'inside' (0%), 'near' (0-1%), 'approaching' (1-2%), 'far'
+// Returns: 'inside' (0%), 'near' (0-0.5%), 'approaching' (0.5-1%), 'far' (>1%)
+// Max 0.5% from zone = active, beyond that = not relevant
 function priceToZone(price, zone) {
   if (!price || !zone.low || !zone.high) return 'far';
   if (price >= zone.low && price <= zone.high) return 'inside';
   const distLow  = Math.abs(price - zone.low)  / zone.low  * 100;
   const distHigh = Math.abs(price - zone.high) / zone.high * 100;
   const dist = Math.min(distLow, distHigh);
-  if (dist <= 1) return 'near';
-  if (dist <= 2) return 'approaching';
+  if (dist <= 0.5) return 'near';
+  if (dist <= 1.0) return 'approaching';
   return 'far';
 }
 function renderZones() {
