@@ -327,12 +327,13 @@ function getConfirmTFs(obTf) {
 function entryQuality(obTf, confirmTf) {
   const obIdx = TF_HIERARCHY.indexOf(obTf);
   const cfIdx = TF_HIERARCHY.indexOf(confirmTf);
-  if (obIdx < 0 || cfIdx < 0) return null;
+  if (obIdx < 0 || cfIdx < 0) return {label:'Señal base', desc:'TF no definido', cls:'espera'};
   const levels = obIdx - cfIdx;
   if (levels === 3) return {label:'Entrada temprana', desc:'3 niveles abajo del OB — precio óptimo', cls:'optima'};
   if (levels === 2) return {label:'Entrada equilibrada', desc:'2 niveles abajo del OB', cls:'valida'};
   if (levels === 1) return {label:'Entrada conservadora', desc:'1 nivel abajo del OB — casi tarde', cls:'espera'};
-  return {label:'Entrada tardía', desc:'Mismo TF del OB — movimiento ya arrancó', cls:'tarde'};
+  if (levels === 0) return {label:'Confirmación macro', desc:'Envolvente en el propio TF del OB — señal fuerte', cls:'valida'};
+  return {label:'Señal base', desc:'TF menor al OB', cls:'espera'};
 }
 
 // ============================================================
@@ -799,24 +800,46 @@ async function fetchPairData(p) {
   const foundTFs=[], foundQualities=[];
   let entryPrice=null, bestQuality=null;
 
-  const tfsToCheck = confirmTFs.slice(-2);
+  // Also check the OB's own TF — envolvente in same TF is a strong confirmation
+  // even if entry price isn't optimal, it's valid
+  const tfsToCheck = [...confirmTFs.slice(-2), obTf]; // add OB tf at end
+  const checkedTFs = new Set();
+
   for (const tf of tfsToCheck) {
-    const kConf = await fetchKlines(p.symbol, TF_API[tf]||tf, 60);
+    if (checkedTFs.has(tf)) continue;
+    checkedTFs.add(tf);
+
+    // For OB's own TF, reuse kOb (already fetched) — no extra request
+    let kConf;
+    if (tf === obTf) {
+      kConf = kOb;
+    } else {
+      kConf = await fetchKlines(p.symbol, TF_API[tf]||tf, 60);
+    }
     if (!kConf) continue;
+
     // Only check last 3 closed candles — engulfing must be recent
     const eng = detectEngulfingRecent(kConf, autoDir, 3);
     if (eng.found) {
       const label = TF_LABELS[tf]||tf;
+      // Avoid duplicate labels
+      if (foundTFs.includes(label)) continue;
       foundTFs.push(label);
-      const q = entryQuality(obTf, tf);
+
+      // Quality for OB's own TF = "Confirmación macro — mismo TF"
+      const q = tf === obTf
+        ? {label:'Confirmación macro', desc:'Envolvente en el propio TF del OB — señal fuerte', cls:'valida'}
+        : entryQuality(obTf, tf);
+
       foundQualities.push({tf:label, quality:q});
       if (!entryPrice) entryPrice = eng.entryPrice;
+
       const obIdx=TF_HIERARCHY.indexOf(obTf);
       const cfIdx=TF_HIERARCHY.indexOf(tf);
       const curBestIdx=bestQuality
         ? TF_HIERARCHY.indexOf(Object.keys(TF_LABELS).find(k=>TF_LABELS[k]===bestQuality.tf)||bestQuality.tf)
         : 999;
-      if (!bestQuality||(obIdx-cfIdx)>(obIdx-curBestIdx)) bestQuality={tf:label,quality:q};
+      if (!bestQuality||(obIdx-cfIdx)>=(obIdx-curBestIdx)) bestQuality={tf:label,quality:q};
     }
   }
   s.envolventes=foundTFs; s.envQualities=foundQualities;
@@ -839,6 +862,8 @@ function computeEntrada(p) {
   const volDesc = s.volDesc && s.volDesc.found;
   const volStr = s.volDesc ? s.volDesc.strength : 0;
   const hasMacd = s.macdDiv;
+  const obTfLabel = (TF_LABELS[obTf] || obTf || '').toUpperCase();
+  const hasMacroTrigger = s.envolventes.some(tf => tf.toUpperCase() === obTfLabel);
   const hasTrigger = s.envolventes.length > 0;
   const tfs = s.envolventes.join(', ');
   const bq = s.bestQuality;
@@ -889,6 +914,9 @@ function computeEntrada(p) {
 
   if (hasTrigger && volDesc && hasMacd && !vwapOk && !movedAway) return {cls:'valida', icon:'🟢', label:'ENTRADA VÁLIDA',
     texto:`Precio en OB con envolvente en <strong>${tfs}</strong> — <span style="color:var(--cyan)">${qualityDesc}</span>. Vol desc + MACD. <span style="color:var(--cyan);font-weight:600">VWAP todavía no roto a favor.</span> Entrada válida, no óptima.`};
+
+  if (hasMacroTrigger && volDesc && !movedAway) return {cls:'valida', icon:'🟢', label:'ENV. MACRO — ' + obTfLabel,
+    texto:`Envolvente confirmada en el propio TF del OB (<strong>${obTfLabel}</strong>) sobre la zona. <span style="color:var(--cyan)">Señal macro fuerte — la ven todos los traders en ${obTfLabel}.</span> Vol descendente (${volStr}%) presente${hasMacd?' + MACD divergencia':' — falta MACD'}. <span style="color:var(--cyan);font-weight:600">Entrada en el cierre de esta vela.</span>`};
 
   if (hasTrigger && volDesc && hasMacd && movedAway) return {cls:'tarde', icon:'🔴', label:'POSIBLE TARDE',
     texto:`Setup se confirmó en <strong>${tfs}</strong> dentro del OB pero el precio ya corrió +2% desde la entrada <span style="color:var(--yellow)">${fmtPrice(p.symbol,ep)}</span>. <span style="color:var(--red);font-weight:600">Probable que la entrada pasó.</span>`};
