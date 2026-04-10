@@ -517,7 +517,7 @@ function detectOBOculto(klines, dir) {
       const prevClose = parseFloat(window[i-1][4]);
       if (!(kOpen < prevClose && kClose > prevClose)) continue;
       const firstClose = prevClose;
-      for (let j = i + 1; j < Math.min(i + 15, window.length); j++) {
+      for (let j = i + 1; j < Math.min(i + 50, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
         if (jClose < firstClose) {
           if ((firstClose - jClose) / firstClose < 0.001) continue;
@@ -537,7 +537,7 @@ function detectOBOculto(klines, dir) {
       const prevClose = parseFloat(window[i-1][4]);
       if (!(kOpen > prevClose && kClose < prevClose)) continue;
       const firstClose = prevClose;
-      for (let j = i + 1; j < Math.min(i + 15, window.length); j++) {
+      for (let j = i + 1; j < Math.min(i + 50, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
         if (jClose > firstClose) {
           if ((jClose - firstClose) / firstClose < 0.001) continue;
