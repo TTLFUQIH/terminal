@@ -453,44 +453,61 @@ function detectOBExtremo(klines, dir, tf) {
   const minMove = OB_MIN_MOVE[tf] || OB_MIN_MOVE[(tf||'').toLowerCase()] || 0.010;
 
   if (dir === 'SHORT') {
-    // Find absolute highest close in window
+    // Find the highest close in window — this is the extreme of the move
     let maxClose = -Infinity, maxIdx = -1;
     window.forEach((k,i) => {
       const c = parseFloat(k[4]);
       if (c > maxClose) { maxClose = c; maxIdx = i; }
     });
     if (maxIdx < 0 || maxIdx >= window.length - 2) return [];
-    const eClose = parseFloat(window[maxIdx][4]);
-    const eHigh  = parseFloat(window[maxIdx][2]);
     // Verify meaningful drop after
     const after = window.slice(maxIdx+1);
     if (!after.length) return [];
     const minAfter = Math.min(...after.map(k=>parseFloat(k[4])));
+    const eClose = parseFloat(window[maxIdx][4]);
     if ((eClose - minAfter) / eClose < minMove) return [];
+
+    // OB Extremo SHORT:
+    // low = close of the extreme candle (entry point — where price enters the OB)
+    // high = highest wick in the movement around the extreme (max wick in ±3 candles)
+    let maxWick = parseFloat(window[maxIdx][2]);
+    for (let k = Math.max(0, maxIdx-3); k <= Math.min(window.length-1, maxIdx+3); k++) {
+      const w = parseFloat(window[k][2]);
+      if (w > maxWick) maxWick = w;
+    }
     return [{
       type:'OB Extremo', dir,
-      low: eClose, high: eHigh,
-      closePrice: eClose, wickPrice: eHigh,
+      low: eClose, high: maxWick,
+      closePrice: eClose, wickPrice: maxWick,
       candleTime: parseInt(window[maxIdx][0]), idx: maxIdx
     }];
+
   } else {
-    // Find absolute lowest close in window
+    // Find the lowest close in window
     let minClose = Infinity, minIdx = -1;
     window.forEach((k,i) => {
       const c = parseFloat(k[4]);
       if (c < minClose) { minClose = c; minIdx = i; }
     });
     if (minIdx < 0 || minIdx >= window.length - 2) return [];
-    const eClose = parseFloat(window[minIdx][4]);
-    const eLow   = parseFloat(window[minIdx][3]);
     const after = window.slice(minIdx+1);
     if (!after.length) return [];
     const maxAfter = Math.max(...after.map(k=>parseFloat(k[4])));
+    const eClose = parseFloat(window[minIdx][4]);
     if ((maxAfter - eClose) / eClose < minMove) return [];
+
+    // OB Extremo LONG:
+    // high = close of the extreme candle (entry point)
+    // low = lowest wick in the movement around the extreme (max wick in ±3 candles)
+    let minWick = parseFloat(window[minIdx][3]);
+    for (let k = Math.max(0, minIdx-3); k <= Math.min(window.length-1, minIdx+3); k++) {
+      const w = parseFloat(window[k][3]);
+      if (w < minWick) minWick = w;
+    }
     return [{
       type:'OB Extremo', dir,
-      low: eLow, high: eClose,
-      closePrice: eClose, wickPrice: eLow,
+      low: minWick, high: eClose,
+      closePrice: eClose, wickPrice: minWick,
       candleTime: parseInt(window[minIdx][0]), idx: minIdx
     }];
   }
