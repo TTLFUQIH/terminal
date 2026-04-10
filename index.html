@@ -382,7 +382,7 @@ async function apiFetch(url) {
 
 // Fetch all prices at once (1 request)
 async function fetchAllPrices() {
-  const data = await apiFetch('/api/prices');
+  const data = await apiFetch('https://api.binance.com/api/v3/ticker/price');
   if (!Array.isArray(data)) return false;
   const syms = new Set(PAIRS.map(p => p.symbol));
   data.forEach(t => {
@@ -397,6 +397,19 @@ async function fetchAllPrices() {
 
 // Fetch klines
 async function fetchKlines(symbol, interval, limit) {
+  // Try Binance directly from browser first (no CORS issue from browser)
+  try {
+    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(url, {signal: ctrl.signal});
+    clearTimeout(tid);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) return data;
+    }
+  } catch(e) {}
+  // Fallback to proxy if Binance direct fails
   const url = `/api/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
   const data = await apiFetch(url);
   return Array.isArray(data) ? data : null;
