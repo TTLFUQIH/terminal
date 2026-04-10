@@ -442,7 +442,7 @@ const OB_MIN_MOVE = {
 function detectOBExtremo(klines, dir, tf) {
   if (!klines || klines.length < 10) return [];
   const closed = klines.slice(0, -1);
-  const window = closed.slice(-80);
+  const window = closed.slice(-150);
   const minMove = OB_MIN_MOVE[tf] || OB_MIN_MOVE[(tf||'').toLowerCase()] || 0.010;
 
   if (dir === 'SHORT') {
@@ -501,7 +501,7 @@ function detectOBOculto(klines, dir) {
   if (!klines || klines.length < 15) return [];
   const closed = klines.slice(0, -1);
   const results = [];
-  const window = closed.slice(-80);
+  const window = closed.slice(-150);
 
   // OB Oculto logic:
   // 1. Find a local swing high (SHORT) or swing low (LONG) = "first close" C1
@@ -807,7 +807,7 @@ async function fetchPairData(p) {
 
   // === REQUEST 1: OB timeframe klines ===
   // Reuse for: OB detection + vol desc + MACD + VWAP if obTf is 1h
-  const kOb = await fetchKlines(p.symbol, apiObTf, 100);
+  const kOb = await fetchKlines(p.symbol, apiObTf, 200);
   if (!kOb) return;
 
   // VWAP: if obTf is 1h reuse kOb, else fetch 1h separately
@@ -1375,7 +1375,7 @@ async function renderChart(idx, symbol, tf) {
   existingCanvas.forEach(el => el.remove());
 
   const apiTf = TF_API[tf] || tf;
-  const klines = await fetchKlines(symbol, apiTf, 150);
+  const klines = await fetchKlines(symbol, apiTf, 200);
   if (loading) loading.style.display = 'none';
   if (!klines || !klines.length) {
     if (loading) { loading.textContent = 'Error cargando datos'; loading.style.display = 'flex'; }
