@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TTL Terminal</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 :root{--cyan:#00d4ff;--cyan-dim:#0099bb;--blue-dark:#030d1a;--blue-mid:#050f20;--blue-surface:#071628;--blue-card:#0a1e35;--blue-border:#0d2640;--text-primary:#e8f4ff;--text-secondary:#7ab8d4;--text-muted:#3d6b85;--green:#00ff88;--red:#ff3355;--yellow:#ffd700;--orange:#ff8800;--purple:#c084fc;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -431,65 +432,68 @@ function calcVwap(klines) {
 // ============================================================
 
 // Detect OB Extremo
-// For SHORT: find the candle with the HIGHEST CLOSE in the visible range
-//            that was followed by a strong move down
-// For LONG:  find the candle with the LOWEST CLOSE in the visible range
-//            that was followed by a strong move up
-// Returns array of {type:'OB Extremo', low, high, closePrice, wickPrice, idx}
+// Finds local extremes (swing highs/lows) that had a significant move after them
+// Returns array of OB Extremo zones
 function detectOBExtremo(klines, dir) {
   if (!klines || klines.length < 10) return [];
   const closed = klines.slice(0, -1);
+  const window = closed.slice(-80); // look at last 80 candles
   const results = [];
-
-  // Find the most extreme close in the last 50 candles
-  // Then verify there was a strong move after it
-  const window = closed.slice(-50);
+  const MIN_MOVE = 0.003; // 0.3% minimum move after extreme
 
   if (dir === 'SHORT') {
-    // Highest close = potential SHORT OB Extremo (top of the move)
-    let maxClose = -Infinity, maxIdx = -1;
-    window.forEach((k, i) => {
-      const c = parseFloat(k[4]);
-      if (c > maxClose) { maxClose = c; maxIdx = i; }
-    });
-    if (maxIdx < 0 || maxIdx > window.length - 3) return [];
-    const extremeCandle = window[maxIdx];
-    const eClose = parseFloat(extremeCandle[4]);
-    const eHigh  = parseFloat(extremeCandle[2]); // wick = liquidity
-    // Verify strong move down after this candle
-    const after = window.slice(maxIdx + 1, maxIdx + 5);
-    const strongMoveDown = after.some(k => parseFloat(k[4]) < eClose * 0.995);
-    if (!strongMoveDown) return [];
-    results.push({
-      type: 'OB Extremo', dir,
-      low: eClose, high: eHigh,
-      closePrice: eClose, wickPrice: eHigh,
-      candleTime: parseInt(window[maxIdx][0]),
-      idx: maxIdx
-    });
+    // Find swing highs: candle whose close is higher than surrounding candles
+    for (let i = 2; i < window.length - 2; i++) {
+      const c = parseFloat(window[i][4]);
+      const prev1 = parseFloat(window[i-1][4]);
+      const prev2 = parseFloat(window[i-2][4]);
+      const next1 = i+1 < window.length ? parseFloat(window[i+1][4]) : c;
+      const next2 = i+2 < window.length ? parseFloat(window[i+2][4]) : c;
+      // Is this a local high close?
+      if (c > prev1 && c > prev2 && c >= next1 && c >= next2) {
+        // Verify meaningful move down after
+        const after = window.slice(i+1, Math.min(i+8, window.length));
+        const minAfter = after.length ? Math.min(...after.map(k=>parseFloat(k[4]))) : c;
+        if ((c - minAfter) / c >= MIN_MOVE) {
+          const eHigh = parseFloat(window[i][2]); // wick = liquidity
+          results.push({
+            type: 'OB Extremo', dir,
+            low: c, high: eHigh,
+            closePrice: c, wickPrice: eHigh,
+            candleTime: parseInt(window[i][0]),
+            idx: i
+          });
+        }
+      }
+    }
   } else {
-    // Lowest close = potential LONG OB Extremo (bottom of the move)
-    let minClose = Infinity, minIdx = -1;
-    window.forEach((k, i) => {
-      const c = parseFloat(k[4]);
-      if (c < minClose) { minClose = c; minIdx = i; }
-    });
-    if (minIdx < 0 || minIdx > window.length - 3) return [];
-    const extremeCandle = window[minIdx];
-    const eClose = parseFloat(extremeCandle[4]);
-    const eLow   = parseFloat(extremeCandle[3]); // wick = liquidity
-    const after = window.slice(minIdx + 1, minIdx + 5);
-    const strongMoveUp = after.some(k => parseFloat(k[4]) > eClose * 1.005);
-    if (!strongMoveUp) return [];
-    results.push({
-      type: 'OB Extremo', dir,
-      low: eLow, high: eClose,
-      closePrice: eClose, wickPrice: eLow,
-      candleTime: parseInt(window[minIdx][0]),
-      idx: minIdx
-    });
+    // Find swing lows: candle whose close is lower than surrounding candles
+    for (let i = 2; i < window.length - 2; i++) {
+      const c = parseFloat(window[i][4]);
+      const prev1 = parseFloat(window[i-1][4]);
+      const prev2 = parseFloat(window[i-2][4]);
+      const next1 = i+1 < window.length ? parseFloat(window[i+1][4]) : c;
+      const next2 = i+2 < window.length ? parseFloat(window[i+2][4]) : c;
+      // Is this a local low close?
+      if (c < prev1 && c < prev2 && c <= next1 && c <= next2) {
+        // Verify meaningful move up after
+        const after = window.slice(i+1, Math.min(i+8, window.length));
+        const maxAfter = after.length ? Math.max(...after.map(k=>parseFloat(k[4]))) : c;
+        if ((maxAfter - c) / c >= MIN_MOVE) {
+          const eLow = parseFloat(window[i][3]); // wick = liquidity
+          results.push({
+            type: 'OB Extremo', dir,
+            low: eLow, high: c,
+            closePrice: c, wickPrice: eLow,
+            candleTime: parseInt(window[i][0]),
+            idx: i
+          });
+        }
+      }
+    }
   }
-  return results;
+  // Return last 3 most recent valid OB Extremos
+  return results.slice(-3);
 }
 
 // Detect OB Oculto
@@ -1364,78 +1368,108 @@ async function renderChart(idx, symbol, tf) {
   const loading = document.getElementById('chart-loading-'+idx);
   if (!container) return;
 
-  // Store for TF switching
-  activeChartData[idx] = {symbol, tf, zones: (state[symbol]&&state[symbol].detectedZones)||[]};
+  if (loading) loading.style.display = 'flex';
 
-  // Clear container
-  container.innerHTML = '';
-  container.style.background = '#131722';
+  // Destroy existing chart
+  if (activeCharts[idx] && activeCharts[idx].chart) {
+    try { activeCharts[idx].chart.remove(); } catch(e) {}
+  }
+  // Clear any leftover elements
+  const existingCanvas = container.querySelectorAll('canvas, div:not(#chart-loading-'+idx+')');
+  existingCanvas.forEach(el => el.remove());
 
-  const tvInterval = getTVInterval(tf);
-  const tvSymbol = getTVSymbol(symbol);
+  const apiTf = TF_API[tf] || tf;
+  const klines = await fetchKlines(symbol, apiTf, 150);
+  if (loading) loading.style.display = 'none';
+  if (!klines || !klines.length) {
+    if (loading) { loading.textContent = 'Error cargando datos'; loading.style.display = 'flex'; }
+    return;
+  }
+
+  const chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth,
+    height: 320,
+    layout: { background:{color:'#0a1e35'}, textColor:'#7ab8d4', fontSize:11, fontFamily:'Rajdhani,sans-serif' },
+    grid: { vertLines:{color:'#0d2640'}, horzLines:{color:'#0d2640'} },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor:'#0d2640' },
+    timeScale: { borderColor:'#0d2640', timeVisible:true, secondsVisible:false },
+  });
+
+  const candleSeries = chart.addCandlestickSeries({
+    upColor:'#00ff88', downColor:'#ff3355',
+    borderUpColor:'#00ff88', borderDownColor:'#ff3355',
+    wickUpColor:'#00ff88', wickDownColor:'#ff3355',
+  });
+
+  const candleData = klines.map(k=>({
+    time: Math.floor(parseInt(k[0])/1000),
+    open: parseFloat(k[1]), high: parseFloat(k[2]),
+    low: parseFloat(k[3]), close: parseFloat(k[4]),
+  })).filter(c=>c.time>0);
+  candleSeries.setData(candleData);
+
   const s = state[symbol];
-  const detectedZones = s ? (s.detectedZones || []) : [];
 
-  // Build studies array for VWAP
-  const studies = ['VWAP@tv-basicstudies'];
+  // VWAP line
+  if (s && s.vwap) {
+    const vwapSeries = chart.addLineSeries({
+      color:'#c084fc', lineWidth:1, lineStyle:2,
+      priceLineVisible:false, lastValueVisible:true, title:'VWAP',
+    });
+    vwapSeries.setData(candleData.map(c=>({time:c.time, value:s.vwap})));
+  }
 
-  // Create TradingView widget iframe
-  const widgetId = 'tv-widget-'+idx;
-  const widget = document.createElement('div');
-  widget.id = widgetId;
-  widget.style.cssText = 'width:100%;height:340px;';
-  container.appendChild(widget);
+  // Draw OB zones
+  const zones = s ? (s.detectedZones||[]) : [];
 
-  // Use TradingView Advanced Chart Widget
-  const script = document.createElement('script');
-  script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-  script.async = true;
-  script.innerHTML = JSON.stringify({
-    autosize: true,
-    symbol: tvSymbol,
-    interval: tvInterval,
-    timezone: 'Etc/UTC',
-    theme: 'dark',
-    style: '1',
-    locale: 'es',
-    backgroundColor: '#0a1e35',
-    gridColor: '#0d2640',
-    hide_top_toolbar: false,
-    hide_legend: false,
-    save_image: false,
-    calendar: false,
-    hide_volume: false,
-    studies: studies,
-    container_id: widgetId,
-    overrides: {
-      'mainSeriesProperties.candleStyle.upColor': '#00ff88',
-      'mainSeriesProperties.candleStyle.downColor': '#ff3355',
-      'mainSeriesProperties.candleStyle.borderUpColor': '#00ff88',
-      'mainSeriesProperties.candleStyle.borderDownColor': '#ff3355',
-      'mainSeriesProperties.candleStyle.wickUpColor': '#00ff88',
-      'mainSeriesProperties.candleStyle.wickDownColor': '#ff3355',
+  zones.forEach(z => {
+    if (z.type === 'Key Level') {
+      candleSeries.createPriceLine({
+        price: z.level||z.low, color:'#ffd700',
+        lineWidth:1, lineStyle:1, axisLabelVisible:true, title:'KL',
+      });
+      return;
     }
-  });
-  widget.appendChild(script);
 
-  // Show OB zone info below chart as price badges since TV widget
-  // doesn't allow programmatic drawing from outside
-  const zoneInfo = document.createElement('div');
-  zoneInfo.style.cssText = 'padding:0.5rem 1rem;background:var(--blue-surface);border-top:1px solid var(--blue-border);display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;';
-
-  detectedZones.forEach(z => {
-    const badge = document.createElement('span');
     const isExtremo = z.type === 'OB Extremo';
-    const isKL = z.type === 'Key Level';
-    const color = isExtremo ? '#ff3c3c' : isKL ? '#ffd700' : '#00d4ff';
-    badge.style.cssText = `background:${color}22;border:1px solid ${color};border-radius:4px;padding:2px 8px;font-size:0.68rem;color:${color};font-family:Orbitron,monospace;`;
-    const label = isKL ? 'KL' : (isExtremo ? 'OB EXT' : 'OB OCU');
-    badge.textContent = `${label} $${z.low.toFixed(4)}–$${z.high.toFixed(4)}`;
-    zoneInfo.appendChild(badge);
+    const borderClr = isExtremo ? '#ff4444' : '#00d4ff';
+    const fillClr   = isExtremo ? 'rgba(255,68,68,0.15)' : 'rgba(0,212,255,0.13)';
+    const label = isExtremo ? 'OB EXT' : 'OB OCU';
+
+    // Top + bottom border
+    candleSeries.createPriceLine({price:z.high, color:borderClr, lineWidth:2, lineStyle:0, axisLabelVisible:true, title:label});
+    candleSeries.createPriceLine({price:z.low,  color:borderClr, lineWidth:2, lineStyle:0, axisLabelVisible:false, title:''});
+
+    // Fill rectangle using a baseline series — most reliable approach in LWC v4
+    try {
+      const baseline = chart.addBaselineSeries({
+        baseValue: {type:'price', price: z.low},
+        topLineColor: 'transparent',
+        topFillColor1: fillClr,
+        topFillColor2: fillClr,
+        bottomLineColor: 'transparent',
+        bottomFillColor1: 'transparent',
+        bottomFillColor2: 'transparent',
+        lineWidth: 0,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      baseline.setData(candleData.map(c=>({time:c.time, value:z.high})));
+    } catch(e) {}
   });
 
-  if (detectedZones.length) container.appendChild(zoneInfo);
-  activeCharts[idx] = {symbol, tf};
+  // Entry and price lines
+  if (s && s.entryPrice) candleSeries.createPriceLine({price:s.entryPrice, color:'#ffd700', lineWidth:2, lineStyle:1, axisLabelVisible:true, title:'Entrada'});
+  if (s && s.price) candleSeries.createPriceLine({price:s.price, color:'#00d4ff', lineWidth:1, lineStyle:3, axisLabelVisible:true, title:'Precio'});
+
+  chart.timeScale().fitContent();
+
+  const ro = new ResizeObserver(()=>{ if(container.clientWidth>0) chart.resize(container.clientWidth, 320); });
+  ro.observe(container);
+
+  activeCharts[idx] = {chart, symbol, tf};
 }
 
 // ============================================================
