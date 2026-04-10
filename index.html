@@ -529,9 +529,17 @@ function detectOBOculto(klines, dir) {
       if (c1 === Infinity) continue;
       // Impulse must open above C1 and close below C1 (breaks minimum)
       if (!(kOpen > c1 && kClose < c1)) continue;
+      // Find end of impulse group — up to 3 consecutive red candles after impulse
+      let groupEnd = i;
+      for (let g = i + 1; g <= Math.min(i + 2, window.length - 1); g++) {
+        const gO = parseFloat(window[g][1]);
+        const gC = parseFloat(window[g][4]);
+        if (gC < gO) groupEnd = g; // still red, extend group
+        else break;
+      }
       // Find C2: price returns and mecha (jHigh) touches C1
       // C2 = close of that candle (even if below C1)
-      for (let j = i + 3; j < Math.min(i + 100, window.length); j++) {
+      for (let j = groupEnd + 1; j < Math.min(i + 100, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
         const jHigh  = parseFloat(window[j][2]);
         if (jHigh >= c1) {
@@ -567,10 +575,16 @@ function detectOBOculto(klines, dir) {
       if (c1 === -Infinity) continue;
       // Impulse must open below C1 and close above C1 (breaks maximum)
       if (!(kOpen < c1 && kClose > c1)) continue;
-      // Find C2: price returns and mecha (jLow) touches C1
-      // C2 = close of that candle (even if above C1)
-      // Must be at least 3 candles after impulse
-      for (let j = i + 3; j < Math.min(i + 100, window.length); j++) {
+      // Find end of impulse group — up to 3 consecutive green candles
+      let groupEnd = i;
+      for (let g = i + 1; g <= Math.min(i + 2, window.length - 1); g++) {
+        const gO = parseFloat(window[g][1]);
+        const gC = parseFloat(window[g][4]);
+        if (gC > gO) groupEnd = g;
+        else break;
+      }
+      // Find C2: mecha (jLow) touches C1
+      for (let j = groupEnd + 1; j < Math.min(i + 100, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
         const jLow   = parseFloat(window[j][3]);
         // Mecha reaches C1 level
