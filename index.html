@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TTL Terminal</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 :root{--cyan:#00d4ff;--cyan-dim:#0099bb;--blue-dark:#030d1a;--blue-mid:#050f20;--blue-surface:#071628;--blue-card:#0a1e35;--blue-border:#0d2640;--text-primary:#e8f4ff;--text-secondary:#7ab8d4;--text-muted:#3d6b85;--green:#00ff88;--red:#ff3355;--yellow:#ffd700;--orange:#ff8800;--purple:#c084fc;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -134,6 +135,17 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .analysis-row{display:none;}
 .analysis-row.open{display:table-row;}
 .analysis-panel{background:var(--blue-surface);border-top:1px solid var(--blue-border);border-bottom:2px solid var(--cyan-dim);padding:1.2rem 1.4rem;}
+.chart-container{position:relative;width:100%;height:320px;background:var(--blue-card);border-radius:8px;margin-bottom:1rem;border:1px solid var(--blue-border);overflow:hidden;}
+.chart-header{display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem;background:var(--blue-surface);border-bottom:1px solid var(--blue-border);border-radius:8px 8px 0 0;}
+.chart-title{font-family:'Orbitron',monospace;font-size:0.75rem;color:var(--cyan);letter-spacing:2px;}
+.chart-legend{display:flex;align-items:center;gap:1rem;font-size:0.65rem;}
+.legend-item{display:flex;align-items:center;gap:4px;color:var(--text-muted);}
+.legend-dot{width:10px;height:4px;border-radius:2px;}
+.chart-loading{display:flex;align-items:center;justify-content:center;height:280px;color:var(--text-muted);font-size:0.8rem;letter-spacing:1px;}
+.chart-tf-btns{display:flex;gap:4px;}
+.chart-tf-btn{background:transparent;border:1px solid var(--blue-border);border-radius:3px;padding:2px 7px;color:var(--text-muted);font-family:'Rajdhani',sans-serif;font-size:0.68rem;cursor:pointer;transition:all 0.15s;}
+.chart-tf-btn:hover{border-color:var(--cyan-dim);color:var(--cyan);}
+.chart-tf-btn.active{background:rgba(0,212,255,0.1);border-color:var(--cyan);color:var(--cyan);}
 .analysis-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.7rem;margin-bottom:1rem;}
 .ablock{background:var(--blue-card);border-radius:6px;padding:0.75rem;border-left:2px solid var(--blue-border);}
 .ablock.zona{border-left-color:var(--cyan-dim);}
@@ -1008,9 +1020,25 @@ function renderScanner() {
       </tr>
       <tr class="analysis-row" id="ar-${idx}"><td colspan="7" style="padding:0;">
         <div class="analysis-panel">
-          <div class="analysis-grid">
+          <div class="chart-header">
+            <span class="chart-title">${p.pair} · OB ${(p.tf||'').toUpperCase()}</span>
+            <div class="chart-tf-btns" id="tf-btns-${idx}">
+              ${getConfirmTFs(p.tf).map(tf => `<button class="chart-tf-btn" onclick="changeChartTf(${idx},'${tf}',event)">${(TF_LABELS[tf]||tf)}</button>`).join('')}
+              <button class="chart-tf-btn active" onclick="changeChartTf(${idx},'${p.tf}',event)">${(p.tf||'').toUpperCase()} (OB)</button>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(255,80,80,0.7)"></div>OB Extremo</div>
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(0,212,255,0.5)"></div>OB Oculto</div>
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(255,215,0,0.5)"></div>Key Level</div>
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(192,132,252,0.8);height:2px"></div>VWAP</div>
+            </div>
+          </div>
+          <div class="chart-container" id="chart-${idx}" style="height:280px;border-radius:0 0 8px 8px;">
+            <div class="chart-loading" id="chart-loading-${idx}">Cargando gráfico...</div>
+          </div>
+          <div class="analysis-grid" style="margin-top:1rem;">
             <div class="ablock zona"><div class="ab-title">① Zona activa</div><div class="ab-text">${zonaActiva.join(' + ')||'— Sin zona'}<br><span style="color:var(--text-muted);font-size:0.7rem">TF ${p.tf}</span></div></div>
-            <div class="ablock confirm"><div class="ab-title">② Confirmación</div><div class="ab-text">Vol. desc.: <strong style="color:${s.volDesc?'var(--green)':'var(--red)'}">${s.volDesc?'✓ Sí':'✗ No'}</strong><br>Div. MACD: <strong style="color:${s.macdDiv?'var(--green)':'var(--red)'}">${s.macdDiv?'✓ Sí':'✗ No'}</strong></div></div>
+            <div class="ablock confirm"><div class="ab-title">② Confirmación</div><div class="ab-text">Vol. desc.: <strong style="color:${s.volDesc&&s.volDesc.found?'var(--green)':'var(--red)'}">${s.volDesc&&s.volDesc.found?'✓ Sí':'✗ No'}</strong><br>Div. MACD: <strong style="color:${s.macdDiv?'var(--green)':'var(--red)'}">${s.macdDiv?'✓ Sí':'✗ No'}</strong></div></div>
             <div class="ablock trigger"><div class="ab-title">③ Envolvente · TF válidos: ${validLabels.join(', ')}</div><div class="ab-text">${s.envolventes.length?s.envolventes.join(', '):'Sin envolvente'}<br><span style="font-size:0.7rem;color:${bq?'var(--green)':'var(--text-muted)'}">${bq?bq.quality.desc:('OB en '+(p.tf||'').toUpperCase()+' — esperando trigger')}</span><br><span style="font-size:0.7rem;color:var(--yellow)">${ep?'Entrada: '+fmtPrice(p.symbol,ep):'—'}</span></div></div>
             <div class="ablock ${cls}"><div class="ab-title">④ Estado</div><div class="ab-text"><strong>${icon} ${label}</strong></div></div>
           </div>
@@ -1156,13 +1184,176 @@ function useFallbackPrices() {
 // ============================================================
 // EXPAND / COLLAPSE ROW
 // ============================================================
+const activeCharts = {}; // idx -> {chart, series, symbol, tf}
+
 function toggleAnalysis(idx) {
   const row = document.getElementById('ar-'+idx);
   const arrow = document.getElementById('arrow-'+idx);
   const isOpen = row.classList.contains('open');
   document.querySelectorAll('.analysis-row').forEach(r => r.classList.remove('open'));
   document.querySelectorAll('.expand-arrow').forEach(a => a.classList.remove('open'));
-  if (!isOpen) { row.classList.add('open'); arrow.classList.add('open'); }
+  if (!isOpen) {
+    row.classList.add('open');
+    arrow.classList.add('open');
+    const p = PAIRS[idx];
+    if (p) setTimeout(() => renderChart(idx, p.symbol, p.tf), 50);
+  }
+}
+
+async function changeChartTf(idx, tf, event) {
+  // Update active button
+  const btns = document.querySelectorAll(`#tf-btns-${idx} .chart-tf-btn`);
+  btns.forEach(b => b.classList.remove('active'));
+  if (event && event.target) event.target.classList.add('active');
+  const p = PAIRS[idx];
+  if (p) await renderChart(idx, p.symbol, tf);
+}
+
+async function renderChart(idx, symbol, tf) {
+  const container = document.getElementById('chart-'+idx);
+  const loading = document.getElementById('chart-loading-'+idx);
+  if (!container) return;
+
+  // Show loading
+  if (loading) loading.style.display = 'flex';
+
+  // Destroy existing chart
+  if (activeCharts[idx]) {
+    try { activeCharts[idx].chart.remove(); } catch(e) {}
+    delete activeCharts[idx];
+  }
+
+  // Fetch klines
+  const apiTf = TF_API[tf] || tf;
+  const klines = await fetchKlines(symbol, apiTf, 100);
+  if (!loading) return;
+  loading.style.display = 'none';
+  if (!klines || !klines.length) {
+    loading.textContent = 'Error cargando datos';
+    loading.style.display = 'flex';
+    return;
+  }
+
+  // Create chart
+  const chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth,
+    height: 280,
+    layout: {
+      background: { color: '#0a1e35' },
+      textColor: '#7ab8d4',
+      fontSize: 11,
+      fontFamily: 'Rajdhani, sans-serif',
+    },
+    grid: {
+      vertLines: { color: '#0d2640' },
+      horzLines: { color: '#0d2640' },
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine: { color: '#00d4ff', width: 1, style: 3 },
+      horzLine: { color: '#00d4ff', width: 1, style: 3 },
+    },
+    rightPriceScale: { borderColor: '#0d2640' },
+    timeScale: { borderColor: '#0d2640', timeVisible: true, secondsVisible: false },
+  });
+
+  // Candlestick series
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: '#00ff88',
+    downColor: '#ff3355',
+    borderUpColor: '#00ff88',
+    borderDownColor: '#ff3355',
+    wickUpColor: '#00ff88',
+    wickDownColor: '#ff3355',
+  });
+
+  const candleData = klines.map(k => ({
+    time: Math.floor(parseInt(k[0]) / 1000),
+    open: parseFloat(k[1]),
+    high: parseFloat(k[2]),
+    low: parseFloat(k[3]),
+    close: parseFloat(k[4]),
+  })).filter(c => c.time > 0);
+
+  candleSeries.setData(candleData);
+
+  // VWAP line
+  const s = state[symbol];
+  if (s && s.vwap) {
+    const vwapSeries = chart.addLineSeries({
+      color: '#c084fc',
+      lineWidth: 1,
+      lineStyle: 2,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      title: 'VWAP',
+    });
+    const vwapData = candleData.map(c => ({ time: c.time, value: s.vwap }));
+    vwapSeries.setData(vwapData);
+  }
+
+  // Draw OB zones as price lines
+  const zones = s ? (s.detectedZones || []) : [];
+  zones.forEach(z => {
+    const color = z.type === 'OB Extremo'
+      ? 'rgba(255,80,80,0.7)'
+      : z.type === 'OB Oculto'
+        ? 'rgba(0,212,255,0.6)'
+        : 'rgba(255,215,0,0.6)';
+
+    // Top of zone
+    candleSeries.createPriceLine({
+      price: z.high,
+      color: color,
+      lineWidth: 1,
+      lineStyle: 0,
+      axisLabelVisible: true,
+      title: z.type,
+    });
+    // Bottom of zone
+    candleSeries.createPriceLine({
+      price: z.low,
+      color: color,
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: false,
+      title: '',
+    });
+  });
+
+  // Entry price line
+  if (s && s.entryPrice) {
+    candleSeries.createPriceLine({
+      price: s.entryPrice,
+      color: '#ffd700',
+      lineWidth: 2,
+      lineStyle: 1,
+      axisLabelVisible: true,
+      title: 'Entrada',
+    });
+  }
+
+  // Current price line
+  if (s && s.price) {
+    candleSeries.createPriceLine({
+      price: s.price,
+      color: '#00d4ff',
+      lineWidth: 1,
+      lineStyle: 3,
+      axisLabelVisible: true,
+      title: 'Precio',
+    });
+  }
+
+  chart.timeScale().fitContent();
+
+  // Handle resize
+  const resizeObs = new ResizeObserver(() => {
+    if (container.clientWidth > 0) chart.resize(container.clientWidth, 280);
+  });
+  resizeObs.observe(container);
+
+  activeCharts[idx] = { chart, symbol, tf };
 }
 
 // ============================================================
