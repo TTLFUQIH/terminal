@@ -448,10 +448,9 @@ function detectOBExtremo(klines, dir) {
     if (!strongMoveDown) return [];
     results.push({
       type: 'OB Extremo', dir,
-      low: eClose,        // body close (lower bound of OB)
-      high: eHigh,        // wick (upper bound = liquidity)
-      closePrice: eClose,
-      wickPrice: eHigh,
+      low: eClose, high: eHigh,
+      closePrice: eClose, wickPrice: eHigh,
+      candleTime: parseInt(window[maxIdx][0]),
       idx: maxIdx
     });
   } else {
@@ -470,10 +469,9 @@ function detectOBExtremo(klines, dir) {
     if (!strongMoveUp) return [];
     results.push({
       type: 'OB Extremo', dir,
-      low: eLow,          // wick (lower bound = liquidity)
-      high: eClose,       // body close (upper bound of OB)
-      closePrice: eClose,
-      wickPrice: eLow,
+      low: eLow, high: eClose,
+      closePrice: eClose, wickPrice: eLow,
+      candleTime: parseInt(window[minIdx][0]),
       idx: minIdx
     });
   }
@@ -521,12 +519,11 @@ function detectOBOculto(klines, dir) {
           if ((firstClose - jClose) / firstClose < 0.001) continue;
           results.push({
             type: 'OB Oculto', dir,
-            low: jClose,
-            high: firstClose,
-            closePrice: firstClose,
-            retestClose: jClose,
-            breakIdx: i,
-            retestIdx: j
+            low: jClose, high: firstClose,
+            closePrice: firstClose, retestClose: jClose,
+            candleTime: parseInt(window[i][0]),
+            endTime: parseInt(window[j][0]),
+            breakIdx: i, retestIdx: j, idx: i
           });
           break;
         }
@@ -545,12 +542,11 @@ function detectOBOculto(klines, dir) {
           if ((jClose - firstClose) / firstClose < 0.001) continue;
           results.push({
             type: 'OB Oculto', dir,
-            low: firstClose,
-            high: jClose,
-            closePrice: firstClose,
-            retestClose: jClose,
-            breakIdx: i,
-            retestIdx: j
+            low: firstClose, high: jClose,
+            closePrice: firstClose, retestClose: jClose,
+            candleTime: parseInt(window[i][0]),
+            endTime: parseInt(window[j][0]),
+            breakIdx: i, retestIdx: j, idx: i
           });
           break;
         }
@@ -582,11 +578,10 @@ function detectKeyLevels(klines) {
       if (!isDup) {
         results.push({
           type: 'Key Level',
-          low: Math.min(c1, c2),
-          high: Math.max(c1, c2),
-          level,
-          close1: c1,
-          close2: c2,
+          low: Math.min(c1, c2), high: Math.max(c1, c2),
+          level, close1: c1, close2: c2,
+          candleTime: parseInt(window[i-1][0]),
+          endTime: parseInt(window[i][0]),
           idx: i
         });
       }
@@ -595,14 +590,47 @@ function detectKeyLevels(klines) {
   return results.slice(-3); // last 3 key levels
 }
 
-// Main OB detector — runs all 3 and returns all found zones
-// Sync version — reuses already-fetched klines
+// Check if OB is mitigated — 3+ closes inside zone after formation
+function isOBMitigated(closed, zone, afterIdx) {
+  let closesInside = 0;
+  for (let i = afterIdx + 1; i < closed.length; i++) {
+    const c = parseFloat(closed[i][4]);
+    if (c >= zone.low && c <= zone.high) {
+      closesInside++;
+      if (closesInside >= 3) return true;
+    }
+  }
+  return false;
+}
+
 function detectAllOBsFromKlines(klines, dir) {
   if (!klines) return [];
-  const extremos = detectOBExtremo(klines, dir);
-  const ocultos  = detectOBOculto(klines, dir);
-  const keyLvls  = detectKeyLevels(klines);
-  return [...extremos, ...ocultos, ...keyLvls];
+  const closed = klines.slice(0, -1);
+
+  // Detect both directions when dir is null (auto-detect per zone)
+  const dirsToCheck = dir ? [dir] : ['LONG','SHORT'];
+  let all = [];
+  for (const d of dirsToCheck) {
+    all = [...all, ...detectOBExtremo(klines, d), ...detectOBOculto(klines, d)];
+  }
+  all = [...all, ...detectKeyLevels(klines)];
+
+  // Filter mitigated zones
+  const active = all.filter(z => {
+    const afterIdx = z.idx !== undefined ? Math.min(z.idx, closed.length - 1) : 0;
+    return !isOBMitigated(closed, z, afterIdx);
+  });
+
+  // Deduplicate zones within 0.3% of each other
+  const deduped = [];
+  for (const z of active) {
+    const isDup = deduped.some(e =>
+      Math.abs(e.low - z.low) / (z.low||1) < 0.003 &&
+      Math.abs(e.high - z.high) / (z.high||1) < 0.003
+    );
+    if (!isDup) deduped.push(z);
+  }
+  return deduped;
 }
 
 // Check if current price is within or near a detected OB zone
@@ -1385,33 +1413,79 @@ async function renderChart(idx, symbol, tf) {
     vwapSeries.setData(vwapData);
   }
 
-  // Draw OB zones as price lines
+  // Draw OB zones as rectangles / lines
   const zones = s ? (s.detectedZones || []) : [];
-  zones.forEach(z => {
-    const color = z.type === 'OB Extremo'
-      ? 'rgba(255,80,80,0.7)'
-      : z.type === 'OB Oculto'
-        ? 'rgba(0,212,255,0.6)'
-        : 'rgba(255,215,0,0.6)';
+  const allTimes = candleData.map(c => c.time);
+  const tFirst = allTimes[0];
+  const tLast  = allTimes[allTimes.length - 1];
 
-    // Top of zone
+  zones.forEach(z => {
+    if (z.type === 'Key Level') {
+      // Key Level = dotted horizontal line at the level
+      candleSeries.createPriceLine({
+        price: z.level || z.low,
+        color: 'rgba(255,215,0,0.9)',
+        lineWidth: 1,
+        lineStyle: 1, // dotted
+        axisLabelVisible: true,
+        title: 'KL',
+      });
+      return;
+    }
+
+    // OB Extremo and OB Oculto = rectangle (filled band using two series)
+    const isExtremo = z.type === 'OB Extremo';
+    const fillColor = isExtremo ? 'rgba(255,60,60,0.15)' : 'rgba(0,212,255,0.12)';
+    const borderColor = isExtremo ? 'rgba(255,60,60,0.8)' : 'rgba(0,212,255,0.7)';
+    const label = isExtremo ? 'OB EXT' : 'OB OCU';
+
+    // Top border line
     candleSeries.createPriceLine({
       price: z.high,
-      color: color,
+      color: borderColor,
       lineWidth: 1,
       lineStyle: 0,
       axisLabelVisible: true,
-      title: z.type,
+      title: label,
     });
-    // Bottom of zone
+    // Bottom border line
     candleSeries.createPriceLine({
       price: z.low,
-      color: color,
+      color: borderColor,
       lineWidth: 1,
-      lineStyle: 2,
+      lineStyle: 0,
       axisLabelVisible: false,
       title: '',
     });
+
+    // Fill rectangle using an area series between high and low
+    try {
+      const rectSeries = chart.addAreaSeries({
+        topColor: fillColor,
+        bottomColor: fillColor,
+        lineColor: 'transparent',
+        lineWidth: 0,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      // Fill from first candle to last with constant high value
+      rectSeries.setData(allTimes.map(t => ({time: t, value: z.high})));
+
+      const rectSeriesLow = chart.addAreaSeries({
+        topColor: 'transparent',
+        bottomColor: 'transparent',
+        lineColor: 'transparent',
+        lineWidth: 0,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        baseValue: {type:'price', price: z.low},
+      });
+      rectSeriesLow.setData(allTimes.map(t => ({time: t, value: z.low})));
+    } catch(e) {
+      // Area series fallback already handled by price lines above
+    }
   });
 
   // Entry price line
