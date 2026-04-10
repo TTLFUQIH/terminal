@@ -514,19 +514,24 @@ function detectOBOculto(klines, dir) {
 
     if (dir === 'SHORT') {
       // SHORT OB Oculto:
-      // 1. C1 = minimum close in recent candles (local low close)
+      // 1. C1 = closest minimum close before impulse (the support level that gets broken)
       // 2. Impulse = RED candle that breaks DOWN through C1
-      // 3. Price returns after time and closes INSIDE the impulse red body (between impClose and impOpen)
-      // 4. C2 = that retest close inside the impulse body
+      // 3. Price returns after time and mecha touches C1
+      // 4. C2 = close of the retest candle
       // OB = between C2 (low) and C1 (high)
       if (kClose >= kOpen) continue; // need RED impulse candle
-      // C1 = lowest close in the 3 candles before the impulse
-      let c1 = Infinity;
-      for (let back = i-3; back < i; back++) {
+      // C1 = closest minimum close to the impulse from above
+      // Look at the 5 candles before the impulse and find the lowest close
+      // that the impulse opens above and closes below
+      let c1 = null;
+      for (let back = i-1; back >= Math.max(0, i-5); back--) {
         const c = parseFloat(window[back][4]);
-        if (c < c1) c1 = c;
+        if (kOpen > c && kClose < c) {
+          c1 = c; // this close level gets broken by the impulse
+          break;
+        }
       }
-      if (c1 === Infinity) continue;
+      if (!c1) continue;
       // Impulse must open above C1 and close below C1 (breaks minimum)
       if (!(kOpen > c1 && kClose < c1)) continue;
       // Find end of impulse group — up to 3 consecutive red candles after impulse
@@ -566,13 +571,18 @@ function detectOBOculto(klines, dir) {
       // 4. C2 = that retest close inside the impulse body
       // OB = between C1 (low) and C2 (high)
       if (kClose <= kOpen) continue; // need GREEN impulse candle
-      // C1 = highest close in the 3 candles before the impulse
-      let c1 = -Infinity;
-      for (let back = i-3; back < i; back++) {
+      // C1 = closest maximum close to the impulse from below
+      // Look at the 5 candles before the impulse and find the highest close
+      // that the impulse opens below and closes above
+      let c1 = null;
+      for (let back = i-1; back >= Math.max(0, i-5); back--) {
         const c = parseFloat(window[back][4]);
-        if (c > c1) c1 = c;
+        if (kOpen < c && kClose > c) {
+          c1 = c; // this close level gets broken by the impulse
+          break;
+        }
       }
-      if (c1 === -Infinity) continue;
+      if (!c1) continue;
       // Impulse must open below C1 and close above C1 (breaks maximum)
       if (!(kOpen < c1 && kClose > c1)) continue;
       // Find end of impulse group — up to 3 consecutive green candles
