@@ -727,28 +727,88 @@ function detectDirection(klines, zoneHigh, zoneLow) {
 
 // MACD divergence
 function detectMacdDiv(klines, dir) {
-  if (!klines || klines.length < 30) return false;
+  if (!klines || klines.length < 35) return false;
   const closed = klines.slice(0, -1);
   const closes = closed.map(k => parseFloat(k[4]));
+
+  // Calculate EMA array
   function emaArr(data, period) {
-    const k = 2/(period+1); const res = [data[0]];
-    for (let i=1;i<data.length;i++) res.push(data[i]*k + res[i-1]*(1-k));
+    const k = 2/(period+1);
+    const res = [data[0]];
+    for (let i=1; i<data.length; i++) res.push(data[i]*k + res[i-1]*(1-k));
     return res;
   }
+
   if (closes.length < 26) return false;
   const ema12 = emaArr(closes, 12);
   const ema26 = emaArr(closes, 26);
-  const macd = ema12.map((v,i) => v - ema26[i]);
-  const sig = emaArr(macd, 9);
-  const hist = macd.map((v,i) => v - sig[i]);
-  const n = hist.length;
-  if (n < 6) return false;
-  const rH = hist.slice(-5);
-  const rC = closes.slice(-5);
+  const macd  = ema12.map((v,i) => v - ema26[i]);
+  const sig   = emaArr(macd, 9);
+  const hist  = macd.map((v,i) => v - sig[i]);
+
+  // Find swing highs and lows in price and MACD
+  // Look back up to 100 candles to catch large divergences
+  const lookback = Math.min(closes.length - 1, 100);
+  const priceWindow = closes.slice(-lookback);
+  const macdWindow  = macd.slice(-lookback);
+  const n = priceWindow.length;
+
+  // Find swing points: local peaks and valleys
+  // A swing high = higher than 3 candles on each side
+  // A swing low  = lower than 3 candles on each side
+  const swing = 3;
+  const priceHighs = [], priceLows = [];
+  const macdHighs  = [], macdLows  = [];
+
+  for (let i = swing; i < n - swing; i++) {
+    const pSlice = priceWindow.slice(i-swing, i+swing+1);
+    const mSlice = macdWindow.slice(i-swing, i+swing+1);
+    const pCenter = priceWindow[i];
+    const mCenter = macdWindow[i];
+
+    // Swing high in price
+    if (pCenter === Math.max(...pSlice)) priceHighs.push({i, val: pCenter});
+    // Swing low in price
+    if (pCenter === Math.min(...pSlice)) priceLows.push({i, val: pCenter});
+    // Swing high in MACD
+    if (mCenter === Math.max(...mSlice)) macdHighs.push({i, val: mCenter});
+    // Swing low in MACD
+    if (mCenter === Math.min(...mSlice)) macdLows.push({i, val: mCenter});
+  }
+
   if (dir === 'LONG') {
-    return rC[rC.length-1] < Math.min(...rC.slice(0,-1)) && rH[rH.length-1] > Math.min(...rH.slice(0,-1));
+    // Bullish divergence: price lower low + MACD higher low
+    // Need at least 2 price swing lows and 2 MACD swing lows
+    if (priceLows.length < 2 || macdLows.length < 2) return false;
+    const lastPriceLow  = priceLows[priceLows.length-1];
+    const prevPriceLow  = priceLows[priceLows.length-2];
+    const lastMacdLow   = macdLows[macdLows.length-1];
+    const prevMacdLow   = macdLows[macdLows.length-2];
+
+    // Price made a lower low
+    const priceLowerLow = lastPriceLow.val < prevPriceLow.val;
+    // MACD did NOT make a lower low (higher low = divergence)
+    const macdHigherLow = lastMacdLow.val > prevMacdLow.val;
+    // The divergence points must be roughly in the same time region
+    const timeClose = Math.abs(lastPriceLow.i - lastMacdLow.i) <= 5;
+
+    return priceLowerLow && macdHigherLow && timeClose;
+
   } else {
-    return rC[rC.length-1] > Math.max(...rC.slice(0,-1)) && rH[rH.length-1] < Math.max(...rH.slice(0,-1));
+    // Bearish divergence: price higher high + MACD lower high
+    if (priceHighs.length < 2 || macdHighs.length < 2) return false;
+    const lastPriceHigh = priceHighs[priceHighs.length-1];
+    const prevPriceHigh = priceHighs[priceHighs.length-2];
+    const lastMacdHigh  = macdHighs[macdHighs.length-1];
+    const prevMacdHigh  = macdHighs[macdHighs.length-2];
+
+    // Price made a higher high
+    const priceHigherHigh = lastPriceHigh.val > prevPriceHigh.val;
+    // MACD did NOT make a higher high (lower high = divergence)
+    const macdLowerHigh = lastMacdHigh.val < prevMacdHigh.val;
+    const timeClose = Math.abs(lastPriceHigh.i - lastMacdHigh.i) <= 5;
+
+    return priceHigherHigh && macdLowerHigh && timeClose;
   }
 }
 
