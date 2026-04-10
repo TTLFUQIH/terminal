@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- saved from url=(0053)file:///C:/Users/nahue/Downloads/ttl-terminal_21.html -->
-<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="es">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TTL Terminal</title>
-<link href="./TTL Terminal_files/css2" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--cyan:#00d4ff;--cyan-dim:#0099bb;--blue-dark:#030d1a;--blue-mid:#050f20;--blue-surface:#071628;--blue-card:#0a1e35;--blue-border:#0d2640;--text-primary:#e8f4ff;--text-secondary:#7ab8d4;--text-muted:#3d6b85;--green:#00ff88;--red:#ff3355;--yellow:#ffd700;--orange:#ff8800;--purple:#c084fc;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -186,7 +186,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <label class="login-label">Contraseña</label>
     <input class="login-input" type="password" id="login-pass" placeholder="••••••••">
     <button class="login-btn" onclick="doLogin()">Ingresar</button>
-    <p class="login-note">Acceso exclusivo para referidos de BingX<br><a href="file:///C:/Users/nahue/Downloads/ttl-terminal_21.html#">¿No tenés acceso? Registrate aquí</a></p>
+    <p class="login-note">Acceso exclusivo para referidos de BingX<br><a href="#">¿No tenés acceso? Registrate aquí</a></p>
   </div>
 </div>
 
@@ -204,10 +204,10 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <div class="main-layout">
     <div class="sidebar">
       <div class="sidebar-section">Navegación</div>
-      <div class="sidebar-item active" onclick="switchTab(&#39;scanner&#39;)"><span>◈ Scanner</span><span class="badge-count" id="setup-count">0</span></div>
-      <div class="sidebar-item" onclick="switchTab(&#39;zonas&#39;)"><span>◉ Mis Zonas</span></div>
+      <div class="sidebar-item active" onclick="switchTab('scanner')"><span>◈ Scanner</span><span class="badge-count" id="setup-count">0</span></div>
+      <div class="sidebar-item" onclick="switchTab('zonas')"><span>◉ Mis Zonas</span></div>
       <div class="sidebar-section">Info</div>
-      <div class="sidebar-item" onclick="switchTab(&#39;setup&#39;)"><span>◇ Setup TTL</span></div>
+      <div class="sidebar-item" onclick="switchTab('setup')"><span>◇ Setup TTL</span></div>
     </div>
 
     <div class="content">
@@ -219,9 +219,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       </div>
 
       <div class="tabs">
-        <button class="tab-btn active" id="tab-scanner" onclick="switchTab(&#39;scanner&#39;)">Scanner</button>
-        <button class="tab-btn" id="tab-zonas" onclick="switchTab(&#39;zonas&#39;)">Mis Zonas</button>
-        <button class="tab-btn" id="tab-setup" onclick="switchTab(&#39;setup&#39;)">Setup TTL</button>
+        <button class="tab-btn active" id="tab-scanner" onclick="switchTab('scanner')">Scanner</button>
+        <button class="tab-btn" id="tab-zonas" onclick="switchTab('zonas')">Mis Zonas</button>
+        <button class="tab-btn" id="tab-setup" onclick="switchTab('setup')">Setup TTL</button>
       </div>
 
       <!-- SCANNER -->
@@ -692,7 +692,7 @@ async function fetchPairData(p) {
   s.zoneProximity='far'; s.activeZone=null; s.detectedZones=[];
 
   const livePrice = s.price;
-  const obTf = p.tf;
+  const obTf = p.tf || '4h';
   const apiObTf = TF_API[obTf] || obTf;
 
   // === REQUEST 1: OB timeframe klines ===
@@ -967,7 +967,7 @@ function renderScanner() {
       if (s.bestQuality) narr += ` — <span style="color:var(--green)">${s.bestQuality.quality.desc}</span>`;
       narr += `.<br>`;
     } else {
-      narr += `<span style="color:var(--yellow)">Sin envolvente cerrada</span> todavía. TF válidos para OB de ${p.tf.toUpperCase()}: <strong>${vTFs.join(', ')}</strong>.<br>`;
+      narr += `<span style="color:var(--yellow)">Sin envolvente cerrada</span> todavía. TF válidos para OB de ${(p.tf||'').toUpperCase()}: <strong>${vTFs.join(', ')}</strong>.<br>`;
     }
     if (ep && lp) {
       narr += `<br>Precio de entrada (cierre vela envolvente): <span style="color:var(--yellow);font-weight:600">${fmtPrice(p.symbol,ep)}</span>`;
@@ -983,7 +983,7 @@ function renderScanner() {
       `<tr class="data-row" onclick="toggleAnalysis(${idx})">
         <td>
           <div class="pair-name">${p.pair} <span class="expand-arrow" id="arrow-${idx}">▼</span></div>
-          <div class="pair-tf">OB ${(s.activeZone?s.activeZone.obTf:p.tf).toUpperCase()}&nbsp;<span style="color:${dirColor};font-size:0.68rem;font-weight:700">${p.dir}</span></div>
+          <div class="pair-tf">OB ${((s.activeZone&&s.activeZone.obTf?s.activeZone.obTf:p.tf)||'').toUpperCase()}&nbsp;<span style="color:${dirColor};font-size:0.68rem;font-weight:700">${p.dir}</span></div>
           <div style="margin-top:3px;">${proximityBadge(s.zoneProximity)}</div>
         </td>
         <td>
@@ -1011,7 +1011,7 @@ function renderScanner() {
           <div class="analysis-grid">
             <div class="ablock zona"><div class="ab-title">① Zona activa</div><div class="ab-text">${zonaActiva.join(' + ')||'— Sin zona'}<br><span style="color:var(--text-muted);font-size:0.7rem">TF ${p.tf}</span></div></div>
             <div class="ablock confirm"><div class="ab-title">② Confirmación</div><div class="ab-text">Vol. desc.: <strong style="color:${s.volDesc?'var(--green)':'var(--red)'}">${s.volDesc?'✓ Sí':'✗ No'}</strong><br>Div. MACD: <strong style="color:${s.macdDiv?'var(--green)':'var(--red)'}">${s.macdDiv?'✓ Sí':'✗ No'}</strong></div></div>
-            <div class="ablock trigger"><div class="ab-title">③ Envolvente · TF válidos: ${validLabels.join(', ')}</div><div class="ab-text">${s.envolventes.length?s.envolventes.join(', '):'Sin envolvente'}<br><span style="font-size:0.7rem;color:${bq?'var(--green)':'var(--text-muted)'}">${bq?bq.quality.desc:('OB en '+p.tf.toUpperCase()+' — esperando trigger')}</span><br><span style="font-size:0.7rem;color:var(--yellow)">${ep?'Entrada: '+fmtPrice(p.symbol,ep):'—'}</span></div></div>
+            <div class="ablock trigger"><div class="ab-title">③ Envolvente · TF válidos: ${validLabels.join(', ')}</div><div class="ab-text">${s.envolventes.length?s.envolventes.join(', '):'Sin envolvente'}<br><span style="font-size:0.7rem;color:${bq?'var(--green)':'var(--text-muted)'}">${bq?bq.quality.desc:('OB en '+(p.tf||'').toUpperCase()+' — esperando trigger')}</span><br><span style="font-size:0.7rem;color:var(--yellow)">${ep?'Entrada: '+fmtPrice(p.symbol,ep):'—'}</span></div></div>
             <div class="ablock ${cls}"><div class="ab-title">④ Estado</div><div class="ab-text"><strong>${icon} ${label}</strong></div></div>
           </div>
           <div class="analysis-narrative">${narr}</div>
@@ -1241,7 +1241,7 @@ function renderZones() {
       ${auto.map(z=>`<div class="zone-row">
         <span style="font-size:0.68rem;letter-spacing:1px;color:var(--purple);text-transform:uppercase;width:90px;">${z.type}</span>
         <span style="font-family:Orbitron,monospace;font-size:0.75rem;">$${z.low.toFixed(4)} – $${z.high.toFixed(4)}</span>
-        <span style="font-size:0.68rem;color:var(--text-muted);">TF ${p.tf.toUpperCase()}</span>
+        <span style="font-size:0.68rem;color:var(--text-muted);">TF ${(p.tf||'').toUpperCase()}</span>
         <span style="font-size:0.68rem;color:var(--purple);">Auto</span>
       </div>`).join('')}
     </div>`;
@@ -1292,6 +1292,5 @@ function doLogout() {
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 </script>
-
-
-</body></html>
+</body>
+</html>
