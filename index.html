@@ -501,37 +501,55 @@ function detectOBOculto(klines, dir) {
   if (!klines || klines.length < 15) return [];
   const closed = klines.slice(0, -1);
   const results = [];
-  const window = closed.slice(-60);
+  const window = closed.slice(-80);
 
-  for (let i = 5; i < window.length - 5; i++) {
-    const k = window[i];
-    const kOpen  = parseFloat(k[1]);
-    const kClose = parseFloat(k[4]);
-    const kBodySize = Math.abs(kClose - kOpen);
-    const kRange = parseFloat(k[2]) - parseFloat(k[3]);
-    // Must be a significant candle (body > 40% of total range)
-    if (kRange === 0 || kBodySize / kRange < 0.4) continue;
+  // OB Oculto logic:
+  // 1. Find a local swing high (SHORT) or swing low (LONG) = "first close" C1
+  // 2. Find an IMPULSE candle whose BODY completely crosses C1 
+  //    (opens one side, closes the other side)
+  // 3. Find the next close on the opposite side of C1 = "second close" C2
+  // 4. OB Oculto = rectangle between C1 and C2
+
+  for (let i = 3; i < window.length - 3; i++) {
+    const imp = window[i]; // potential impulse candle
+    const impOpen  = parseFloat(imp[1]);
+    const impClose = parseFloat(imp[4]);
+    const impHigh  = parseFloat(imp[2]);
+    const impLow   = parseFloat(imp[3]);
+    const impBodySize = Math.abs(impClose - impOpen);
+    const impRange = impHigh - impLow;
+
+    // Impulse must have significant body (>50% of range)
+    if (impRange === 0 || impBodySize / impRange < 0.5) continue;
+    // Impulse body must be meaningful size relative to price
+    if (impBodySize / impOpen < 0.002) continue;
 
     if (dir === 'SHORT') {
-      // Looking for: body that goes UP strongly (breaks previous resistance)
-      // then price comes back down and closes below
-      if (kClose <= kOpen) continue; // need green body going up
-      const prevClose = parseFloat(window[i-1][4]);
-      // Body must completely cross the previous close level
-      if (!(kOpen < prevClose && kClose > prevClose)) continue;
-      // The "first close" is prevClose (the OB Extremo close level)
-      const firstClose = prevClose;
-      // Find next close BELOW firstClose after the impulse
-      for (let j = i + 1; j < Math.min(i + 15, window.length); j++) {
-        const jClose = parseFloat(window[j][4]);
-        if (jClose < firstClose) {
-          // OB Oculto: between firstClose (top) and jClose (bottom)
-          // but jClose must be meaningfully below firstClose
-          if ((firstClose - jClose) / firstClose < 0.001) continue;
+      // Impulse goes UP (green) — breaking a resistance level
+      if (impClose <= impOpen) continue;
+
+      // Find C1: the highest close in the 3 candles BEFORE the impulse
+      // This is the resistance level that gets broken
+      let c1 = -Infinity, c1Idx = -1;
+      for (let k = i-3; k < i; k++) {
+        const c = parseFloat(window[k][4]);
+        if (c > c1) { c1 = c; c1Idx = k; }
+      }
+      if (c1 === -Infinity) continue;
+
+      // Impulse body must cross C1 (open below, close above)
+      if (!(impOpen < c1 && impClose > c1)) continue;
+
+      // Find C2: first close BELOW C1 after the impulse (within 20 candles)
+      for (let j = i + 1; j < Math.min(i + 20, window.length); j++) {
+        const c2 = parseFloat(window[j][4]);
+        if (c2 < c1) {
+          const zoneSize = (c1 - c2) / c1;
+          if (zoneSize < 0.001 || zoneSize > 0.15) continue; // sanity check
           results.push({
             type: 'OB Oculto', dir,
-            low: jClose, high: firstClose,
-            closePrice: firstClose, retestClose: jClose,
+            low: c2, high: c1,
+            closePrice: c1, retestClose: c2,
             candleTime: parseInt(window[i][0]),
             endTime: parseInt(window[j][0]),
             breakIdx: i, retestIdx: j, idx: i
@@ -540,21 +558,30 @@ function detectOBOculto(klines, dir) {
         }
       }
     } else {
-      // LONG: body goes DOWN strongly (breaks previous support)
-      // then price comes back up and closes above
-      if (kClose >= kOpen) continue; // need red body going down
-      const prevClose = parseFloat(window[i-1][4]);
-      if (!(kOpen > prevClose && kClose < prevClose)) continue;
-      const firstClose = prevClose;
-      // Find next close ABOVE firstClose after the impulse
-      for (let j = i + 1; j < Math.min(i + 15, window.length); j++) {
-        const jClose = parseFloat(window[j][4]);
-        if (jClose > firstClose) {
-          if ((jClose - firstClose) / firstClose < 0.001) continue;
+      // Impulse goes DOWN (red) — breaking a support level
+      if (impClose >= impOpen) continue;
+
+      // Find C1: the lowest close in the 3 candles BEFORE the impulse
+      let c1 = Infinity, c1Idx = -1;
+      for (let k = i-3; k < i; k++) {
+        const c = parseFloat(window[k][4]);
+        if (c < c1) { c1 = c; c1Idx = k; }
+      }
+      if (c1 === Infinity) continue;
+
+      // Impulse body must cross C1 (open above, close below)
+      if (!(impOpen > c1 && impClose < c1)) continue;
+
+      // Find C2: first close ABOVE C1 after the impulse
+      for (let j = i + 1; j < Math.min(i + 20, window.length); j++) {
+        const c2 = parseFloat(window[j][4]);
+        if (c2 > c1) {
+          const zoneSize = (c2 - c1) / c1;
+          if (zoneSize < 0.001 || zoneSize > 0.15) continue;
           results.push({
             type: 'OB Oculto', dir,
-            low: firstClose, high: jClose,
-            closePrice: firstClose, retestClose: jClose,
+            low: c1, high: c2,
+            closePrice: c1, retestClose: c2,
             candleTime: parseInt(window[i][0]),
             endTime: parseInt(window[j][0]),
             breakIdx: i, retestIdx: j, idx: i
@@ -565,41 +592,12 @@ function detectOBOculto(klines, dir) {
     }
   }
 
-  // Return most recent OB Ocultos (last 3 max)
-  return results.slice(-3);
+  // Return last 2 most recent valid OB Ocultos
+  return results.slice(-2);
 }
 
-// Detect Key Level
-// Two consecutive (or near) closes almost at the same price (within 0.15%)
-function detectKeyLevels(klines) {
-  if (!klines || klines.length < 5) return [];
-  const closed = klines.slice(0, -1);
-  const window = closed.slice(-50);
-  const results = [];
-  const TOLERANCE = 0.0015; // 0.15%
-
-  for (let i = 1; i < window.length; i++) {
-    const c1 = parseFloat(window[i-1][4]);
-    const c2 = parseFloat(window[i][4]);
-    const diff = Math.abs(c2 - c1) / c1;
-    if (diff <= TOLERANCE) {
-      const level = (c1 + c2) / 2;
-      // Avoid duplicates close to each other
-      const isDup = results.some(r => Math.abs(r.low - level) / level < 0.002);
-      if (!isDup) {
-        results.push({
-          type: 'Key Level',
-          low: Math.min(c1, c2), high: Math.max(c1, c2),
-          level, close1: c1, close2: c2,
-          candleTime: parseInt(window[i-1][0]),
-          endTime: parseInt(window[i][0]),
-          idx: i
-        });
-      }
-    }
-  }
-  return results.slice(-3); // last 3 key levels
-}
+// Key Level detection disabled — marked manually via Mis Zonas
+function detectKeyLevels(klines) { return []; }
 
 // Check if OB is mitigated — 3+ closes inside zone after formation
 function isOBMitigated(closed, zone, afterIdx) {
@@ -1422,13 +1420,7 @@ async function renderChart(idx, symbol, tf) {
   const zones = s ? (s.detectedZones||[]) : [];
 
   zones.forEach(z => {
-    if (z.type === 'Key Level') {
-      candleSeries.createPriceLine({
-        price: z.level||z.low, color:'#ffd700',
-        lineWidth:1, lineStyle:1, axisLabelVisible:true, title:'KL',
-      });
-      return;
-    }
+    if (z.type === 'Key Level') return; // Key Levels removed
 
     const isExtremo = z.type === 'OB Extremo';
     const borderClr = isExtremo ? '#ff4444' : '#00d4ff';
