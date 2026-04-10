@@ -340,7 +340,7 @@ function entryQuality(obTf, confirmTf) {
 // ============================================================
 const state = {}; // symbol -> { price, prevPrice, vwap, envolventes, entryPrice, volDesc, macdDiv }
 PAIRS.forEach(p => {
-  state[p.symbol] = { price:0, prevPrice:0, vwap:null, envolventes:[], envQualities:[], bestQuality:null, entryPrice:null, volDesc:false, macdDiv:false };
+  state[p.symbol] = { price:0, prevPrice:0, vwap:null, envolventes:[], envQualities:[], bestQuality:null, entryPrice:null, volDesc:false, macdDiv:false, detectedDir:null };
 });
 
 // ============================================================
@@ -624,25 +624,39 @@ function findClosestZone(price, zones) {
 // Returns {found, entryPrice}
 function detectEngulfing(klines, dir) {
   if (!klines || klines.length < 3) return {found:false, entryPrice:null};
-  // Exclude the last candle (currently forming / open)
   const closed = klines.slice(0, -1);
   const prev = closed[closed.length - 2];
   const curr = closed[closed.length - 1];
   if (!prev || !curr) return {found:false, entryPrice:null};
+  return checkEngulfPair(prev, curr, dir);
+}
+
+// Only valid if engulfing happened in last maxCandles closed candles
+function detectEngulfingRecent(klines, dir, maxCandles) {
+  if (!klines || klines.length < 3) return {found:false, entryPrice:null};
+  // Exclude current open candle
+  const closed = klines.slice(0, -1);
+  // Only look at the last maxCandles pairs
+  const lookback = closed.slice(-Math.min(maxCandles + 1, closed.length));
+  // Check pairs from most recent backwards
+  for (let i = lookback.length - 1; i >= 1; i--) {
+    const result = checkEngulfPair(lookback[i-1], lookback[i], dir);
+    if (result.found) return result;
+  }
+  return {found:false, entryPrice:null};
+}
+
+function checkEngulfPair(prev, curr, dir) {
   const pO=parseFloat(prev[1]),pC=parseFloat(prev[4]);
   const cO=parseFloat(curr[1]),cC=parseFloat(curr[4]);
   const pHigh=Math.max(pO,pC), pLow=Math.min(pO,pC);
   const cHigh=Math.max(cO,cC), cLow=Math.min(cO,cC);
   if (dir === 'LONG') {
-    // Bullish engulf: prev red, curr green, curr body wraps prev body
-    if (pC < pO && cC > cO && cLow <= pLow && cHigh >= pHigh) {
+    if (pC < pO && cC > cO && cLow <= pLow && cHigh >= pHigh)
       return {found:true, entryPrice:cC};
-    }
   } else {
-    // Bearish engulf: prev green, curr red, curr body wraps prev body
-    if (pC > pO && cC < cO && cLow <= pLow && cHigh >= pHigh) {
+    if (pC > pO && cC < cO && cLow <= pLow && cHigh >= pHigh)
       return {found:true, entryPrice:cC};
-    }
   }
   return {found:false, entryPrice:null};
 }
@@ -663,6 +677,35 @@ function detectVolDesc(klines) {
   const strength = declining / (vols.length - 1); // 0 to 1
   // Consider vol desc if more than 60% of pairs are declining
   return {found: strength >= 0.6, strength: Math.round(strength * 100)};
+}
+
+// Auto-detect direction: is price coming from above or below the zone?
+// Returns 'LONG' if price approaching from above (price falling into zone = want to buy)
+// Returns 'SHORT' if price approaching from below (price rising into zone = want to sell)
+function detectDirection(klines, zoneHigh, zoneLow) {
+  if (!klines || klines.length < 6) return null;
+  const closed = klines.slice(0, -1);
+  // Look at last 5 closed candles to determine approach direction
+  const recent = closed.slice(-5);
+  const closes = recent.map(k => parseFloat(k[4]));
+  const zoneMiddle = (zoneHigh + zoneLow) / 2;
+
+  // Count how many candles are above vs below the zone middle
+  const above = closes.filter(c => c > zoneMiddle).length;
+  const below = closes.filter(c => c < zoneMiddle).length;
+
+  // Check trend direction of recent closes
+  const firstClose = closes[0];
+  const lastClose = closes[closes.length - 1];
+  const trend = lastClose - firstClose; // positive = going up, negative = going down
+
+  // If price was mostly above and trending down into zone = LONG (looking for bounce up)
+  if (above >= 3 && trend < 0) return 'LONG';
+  // If price was mostly below and trending up into zone = SHORT (looking for rejection down)
+  if (below >= 3 && trend > 0) return 'SHORT';
+  // Fallback: use position relative to zone
+  if (lastClose > zoneMiddle) return 'SHORT'; // price above zone = resistance = SHORT
+  return 'LONG'; // price below zone = support = LONG
 }
 
 // MACD divergence
@@ -701,7 +744,7 @@ async function fetchPairData(p) {
   // Reset
   s.envolventes=[]; s.envQualities=[]; s.bestQuality=null;
   s.entryPrice=null; s.volDesc={found:false,strength:0}; s.macdDiv=false;
-  s.zoneProximity='far'; s.activeZone=null; s.detectedZones=[];
+  s.zoneProximity='far'; s.activeZone=null; s.detectedZones=[]; s.detectedDir=null;
 
   const livePrice = s.price;
   const obTf = p.tf || '4h';
@@ -723,7 +766,8 @@ async function fetchPairData(p) {
 
   // Auto-detect OBs from OB TF klines (sync, no extra request)
   const manualZones = getZonesForPair(p.symbol).map(z=>({...z,source:'manual'}));
-  const autoZones = detectAllOBsFromKlines(kOb, p.dir);
+  // Use neutral direction for OB detection — direction determined per-zone later
+  const autoZones = detectAllOBsFromKlines(kOb, null);
   autoZones.forEach(z=>z.source='auto');
   const allZones = [...manualZones, ...autoZones];
   s.detectedZones = allZones;
@@ -735,30 +779,32 @@ async function fetchPairData(p) {
   s.zoneProximity = closestProx;
   s.activeZone = closestZone;
 
-  // Vol desc + MACD from OB TF klines (already fetched)
-  s.volDesc = detectVolDesc(kOb);
-  s.macdDiv = detectMacdDiv(kOb, p.dir);
-
   if (closestProx === 'far') return;
+
+  // === AUTO-DETECT DIRECTION based on price approach to the zone ===
+  const autoDir = detectDirection(kOb, closestZone.high, closestZone.low);
+  s.detectedDir = autoDir; // store detected direction in state
+
+  // Vol desc + MACD using detected direction
+  s.volDesc = detectVolDesc(kOb);
+  s.macdDiv = detectMacdDiv(kOb, autoDir);
 
   // Only look for engulfing if near or inside OB
   if (closestProx !== 'inside' && closestProx !== 'near') return;
 
-  // === REQUEST 2 (optional): confirmation TF klines ===
-  // Pick the single most useful confirmation TF (2 levels below OB)
-  // to minimize requests while still detecting the engulfing
+  // === REQUEST 2: confirmation TF klines — engulfing must be RECENT (last 3 candles) ===
   const confirmTFs = getConfirmTFs(obTf);
   if (!confirmTFs.length) return;
 
   const foundTFs=[], foundQualities=[];
   let entryPrice=null, bestQuality=null;
 
-  // Fetch only the 2 most relevant confirmation TFs (not all 3)
-  const tfsToCheck = confirmTFs.slice(-2); // last 2 = closest to OB = most relevant
+  const tfsToCheck = confirmTFs.slice(-2);
   for (const tf of tfsToCheck) {
     const kConf = await fetchKlines(p.symbol, TF_API[tf]||tf, 60);
     if (!kConf) continue;
-    const eng = detectEngulfing(kConf, p.dir);
+    // Only check last 3 closed candles — engulfing must be recent
+    const eng = detectEngulfingRecent(kConf, autoDir, 3);
     if (eng.found) {
       const label = TF_LABELS[tf]||tf;
       foundTFs.push(label);
@@ -787,6 +833,7 @@ function computeEntrada(p) {
   const prox = s.zoneProximity;
   const az = s.activeZone;
   const obTf = (az && az.obTf) || p.tf;
+  const dir = s.detectedDir || p.dir; // use auto-detected direction
   const validTFs = getConfirmTFs(obTf);
   const validTFLabels = validTFs.map(tf => TF_LABELS[tf]||tf).join(', ');
   const volDesc = s.volDesc && s.volDesc.found;
@@ -797,8 +844,8 @@ function computeEntrada(p) {
   const bq = s.bestQuality;
   const qualityDesc = bq ? bq.quality.desc : '';
   const pct = ep && lp ? ((lp-ep)/ep*100) : 0;
-  const movedAway = p.dir==='LONG' ? pct>2 : pct<-2;
-  const vwapOk = s.vwap ? (p.dir==='LONG' ? lp>s.vwap : lp<s.vwap) : false;
+  const movedAway = dir==='LONG' ? pct>2 : pct<-2;
+  const vwapOk = s.vwap ? (dir==='LONG' ? lp>s.vwap : lp<s.vwap) : false;
   const zoneLabel = az
     ? (az.source==='auto'
         ? `${az.type} [$${az.low.toFixed(4)}–$${az.high.toFixed(4)}] AUTO`
@@ -838,7 +885,7 @@ function computeEntrada(p) {
     texto:`Precio <strong>dentro del OB</strong> — <strong>${zoneLabel}</strong>. Esperando volumen descendente y divergencia MACD para confirmar el setup.`};
 
   if (hasTrigger && volDesc && hasMacd && vwapOk && !movedAway) return {cls:'optima', icon:'✅', label:'ENTRADA ÓPTIMA',
-    texto:`<strong>Setup TTL completo.</strong> Precio dentro de <strong>${zoneLabel}</strong>. Volumen descendente (${volStr}%) + divergencia MACD + envolvente cerrada en <strong>${tfs}</strong> — <span style="color:var(--green)">${qualityDesc}</span> + precio ${p.dir==='LONG'?'sobre':'bajo'} VWAP. <span style="color:var(--green);font-weight:600">Entrada vigente ahora.</span>`};
+    texto:`<strong>Setup TTL completo.</strong> Precio dentro de <strong>${zoneLabel}</strong>. Volumen descendente (${volStr}%) + divergencia MACD + envolvente cerrada en <strong>${tfs}</strong> — <span style="color:var(--green)">${qualityDesc}</span> + precio ${dir==='LONG'?'sobre':'bajo'} VWAP. <span style="color:var(--green);font-weight:600">Entrada vigente ahora.</span>`};
 
   if (hasTrigger && volDesc && hasMacd && !vwapOk && !movedAway) return {cls:'valida', icon:'🟢', label:'ENTRADA VÁLIDA',
     texto:`Precio en OB con envolvente en <strong>${tfs}</strong> — <span style="color:var(--cyan)">${qualityDesc}</span>. Vol desc + MACD. <span style="color:var(--cyan);font-weight:600">VWAP todavía no roto a favor.</span> Entrada válida, no óptima.`};
@@ -915,7 +962,8 @@ function renderScanner() {
 
     const scoreClass = score >= 90?'full':score>=70?'high':score>=40?'mid':'low';
     const statusLabel = {setup:'Setup ✓',watch:'Observar',wait:'Esperar',none:'Sin setup'}[status];
-    const dirColor = p.dir==='LONG'?'var(--green)':'var(--red)';
+    const activeDir = s.detectedDir || p.dir;
+    const dirColor = activeDir==='LONG'?'var(--green)':'var(--red)';
 
     const zoneHtml = ZONE_CHECKS.map(c => {
       const has = p.zones.includes(c);
@@ -953,19 +1001,19 @@ function renderScanner() {
     const distLabel = ep ? (Math.abs(pct)<1?`En zona (${Math.abs(pct).toFixed(2)}%)`:`${Math.abs(pct).toFixed(2)}% desde entrada`) : '—';
 
     const vwap = s.vwap;
-    const vwapOk = vwap ? (p.dir==='LONG'?lp>vwap:lp<vwap) : null;
+    const vwapOk = vwap ? (activeDir==='LONG'?lp>vwap:lp<vwap) : null;
     const vwapCls = vwapOk===null?'nd':vwapOk?'ok':'ko';
-    const vwapLabel = vwapOk===null?'Calculando...':(vwapOk?(p.dir==='LONG'?'▲ Sobre VWAP':'▼ Bajo VWAP'):(p.dir==='LONG'?'▼ Bajo VWAP':'▲ Sobre VWAP'));
+    const vwapLabel = vwapOk===null?'Calculando...':(vwapOk?(activeDir==='LONG'?'▲ Sobre VWAP':'▼ Bajo VWAP'):(activeDir==='LONG'?'▼ Bajo VWAP':'▲ Sobre VWAP'));
 
     const {cls, icon, label} = computeEntrada(p);
     const zonaActiva = p.zones.filter(c=>ZONE_CHECKS.includes(c));
 
     // Build narrative
-    const dirOp = p.dir==='LONG'?'bajando':'subiendo';
-    const dirDebil = p.dir==='LONG'?'vendedora':'compradora';
+    const dirOp = activeDir==='LONG'?'bajando':'subiendo';
+    const dirDebil = activeDir==='LONG'?'vendedora':'compradora';
     let narr = `<strong>${p.pair}</strong> en ${p.tf}.<br><br>`;
     narr += zonaActiva.length
-      ? `Zona activa: <span style="color:var(--cyan);font-weight:600">${zonaActiva.join(' + ')}</span> — zona de ${p.dir==='LONG'?'compra':'venta'}.<br>`
+      ? `Zona activa: <span style="color:var(--cyan);font-weight:600">${zonaActiva.join(' + ')}</span> — zona de ${activeDir==='LONG'?'compra':'venta'}.<br>`
       : `<span style="color:var(--red)">Sin zona activa</span> — setup no aplica.<br>`;
     narr += s.volDesc
       ? `Volumen <strong>descendente</strong> mientras el precio va ${dirOp} — presión ${dirDebil} <span style="color:var(--green)">debilitándose.</span><br>`
@@ -995,7 +1043,7 @@ function renderScanner() {
       `<tr class="data-row" onclick="toggleAnalysis(${idx})">
         <td>
           <div class="pair-name">${p.pair} <span class="expand-arrow" id="arrow-${idx}">▼</span></div>
-          <div class="pair-tf">OB ${((s.activeZone&&s.activeZone.obTf?s.activeZone.obTf:p.tf)||'').toUpperCase()}&nbsp;<span style="color:${dirColor};font-size:0.68rem;font-weight:700">${p.dir}</span></div>
+          <div class="pair-tf">OB ${((s.activeZone&&s.activeZone.obTf?s.activeZone.obTf:p.tf)||'').toUpperCase()}&nbsp;<span style="color:${dirColor};font-size:0.68rem;font-weight:700">${activeDir}</span></div>
           <div style="margin-top:3px;">${proximityBadge(s.zoneProximity)}</div>
         </td>
         <td>
