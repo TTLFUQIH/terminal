@@ -497,62 +497,63 @@ function detectOBExtremo(klines, dir, tf) {
 }
 
 // Detect OB Oculto
-// Logic:
-// 1. Find an OB Extremo close (the first close)
-// 2. Find a candle whose BODY completely crosses that close level
-//    (body opens one side, closes the other side — cuerpo completo)
-// 3. Find the next close after that impulse candle on the opposite side
-// 4. OB Oculto = range between those two closes
-//    (only mechas and the impulse body in between)
+// OB Oculto detection — correct logic:
+// 1. Find a significant impulse candle (big body, strong move)
+// 2. C1 = closest close to the impulse from the ORIGIN side
+//    (for bearish impulse: highest close just before impulse from above)
+//    (for bullish impulse: lowest close just before impulse from below)
+// 3. C2 = when price comes BACK to retest that zone after time X,
+//    the closest close to the impulse range from the OTHER side
+// 4. OB = rectangle between C1 and C2
 function detectOBOculto(klines, dir) {
   if (!klines || klines.length < 15) return [];
   const closed = klines.slice(0, -1);
   const results = [];
   const window = closed.slice(-150);
 
-  // OB Oculto logic:
-  // 1. Find a local swing high (SHORT) or swing low (LONG) = "first close" C1
-  // 2. Find an IMPULSE candle whose BODY completely crosses C1 
-  //    (opens one side, closes the other side)
-  // 3. Find the next close on the opposite side of C1 = "second close" C2
-  // 4. OB Oculto = rectangle between C1 and C2
-
-  for (let i = 3; i < window.length - 3; i++) {
-    const imp = window[i]; // potential impulse candle
+  for (let i = 2; i < window.length - 5; i++) {
+    const imp = window[i];
     const impOpen  = parseFloat(imp[1]);
     const impClose = parseFloat(imp[4]);
     const impHigh  = parseFloat(imp[2]);
     const impLow   = parseFloat(imp[3]);
-    const impBodySize = Math.abs(impClose - impOpen);
+    const impBody  = Math.abs(impClose - impOpen);
     const impRange = impHigh - impLow;
 
-    // Impulse must have significant body (>50% of range)
-    if (impRange === 0 || impBodySize / impRange < 0.5) continue;
-    // Impulse body must be meaningful size relative to price
-    if (impBodySize / impOpen < 0.002) continue;
+    // Must be a significant impulse candle
+    if (impRange === 0 || impBody / impRange < 0.5) continue;
+    if (impBody / impOpen < 0.002) continue;
 
     if (dir === 'SHORT') {
-      // Impulse goes UP (green) — breaking a resistance level
-      if (impClose <= impOpen) continue;
+      // Bearish impulse (red candle going down strongly)
+      if (impClose >= impOpen) continue;
 
-      // Find C1: the highest close in the 3 candles BEFORE the impulse
-      // This is the resistance level that gets broken
-      let c1 = -Infinity, c1Idx = -1;
-      for (let k = i-3; k < i; k++) {
+      // C1 = closest close from ABOVE just before the impulse
+      // Take the close of the candle immediately before the impulse
+      // that is above the impulse body range
+      let c1 = null;
+      for (let k = i - 1; k >= Math.max(0, i - 5); k--) {
         const c = parseFloat(window[k][4]);
-        if (c > c1) { c1 = c; c1Idx = k; }
+        if (c > impOpen) { c1 = c; break; } // first close above impulse open
       }
-      if (c1 === -Infinity) continue;
+      if (!c1) {
+        // fallback: use the close just before the impulse
+        c1 = parseFloat(window[i-1][4]);
+      }
+      // C1 must be above the impulse body (above impOpen)
+      if (c1 <= impOpen) continue;
+      // Impulse must break through C1 downward (impClose below C1)
+      if (impClose >= c1) continue;
 
-      // Impulse body must cross C1 (open below, close above)
-      if (!(impOpen < c1 && impClose > c1)) continue;
-
-      // Find C2: first close BELOW C1 after the impulse (within 20 candles)
-      for (let j = i + 1; j < Math.min(i + 20, window.length); j++) {
+      // Now find C2: price comes back to retest the impulse zone
+      // C2 = closest close from BELOW that enters the impulse body range
+      // Must happen after at least 3 candles (not immediately)
+      for (let j = i + 3; j < Math.min(i + 100, window.length); j++) {
         const c2 = parseFloat(window[j][4]);
-        if (c2 < c1) {
+        // C2 must be inside the impulse body range (between impClose and impOpen)
+        if (c2 > impClose && c2 < c1) {
           const zoneSize = (c1 - c2) / c1;
-          if (zoneSize < 0.001 || zoneSize > 0.15) continue; // sanity check
+          if (zoneSize < 0.001 || zoneSize > 0.10) break;
           results.push({
             type: 'OB Oculto', dir,
             low: c2, high: c1,
@@ -563,28 +564,32 @@ function detectOBOculto(klines, dir) {
           });
           break;
         }
+        // If price goes far below impulse close, no retest coming
+        if (c2 < impClose * 0.99) break;
       }
+
     } else {
-      // Impulse goes DOWN (red) — breaking a support level
-      if (impClose >= impOpen) continue;
+      // Bullish impulse (green candle going up strongly)
+      if (impClose <= impOpen) continue;
 
-      // Find C1: the lowest close in the 3 candles BEFORE the impulse
-      let c1 = Infinity, c1Idx = -1;
-      for (let k = i-3; k < i; k++) {
+      // C1 = closest close from BELOW just before the impulse
+      let c1 = null;
+      for (let k = i - 1; k >= Math.max(0, i - 5); k--) {
         const c = parseFloat(window[k][4]);
-        if (c < c1) { c1 = c; c1Idx = k; }
+        if (c < impOpen) { c1 = c; break; }
       }
-      if (c1 === Infinity) continue;
+      if (!c1) {
+        c1 = parseFloat(window[i-1][4]);
+      }
+      if (c1 >= impOpen) continue;
+      if (impClose <= c1) continue;
 
-      // Impulse body must cross C1 (open above, close below)
-      if (!(impOpen > c1 && impClose < c1)) continue;
-
-      // Find C2: first close ABOVE C1 after the impulse
-      for (let j = i + 1; j < Math.min(i + 20, window.length); j++) {
+      // C2: price comes back to retest, closes inside impulse body range
+      for (let j = i + 3; j < Math.min(i + 100, window.length); j++) {
         const c2 = parseFloat(window[j][4]);
-        if (c2 > c1) {
+        if (c2 < impClose && c2 > c1) {
           const zoneSize = (c2 - c1) / c1;
-          if (zoneSize < 0.001 || zoneSize > 0.15) continue;
+          if (zoneSize < 0.001 || zoneSize > 0.10) break;
           results.push({
             type: 'OB Oculto', dir,
             low: c1, high: c2,
@@ -595,6 +600,7 @@ function detectOBOculto(klines, dir) {
           });
           break;
         }
+        if (c2 > impClose * 1.01) break;
       }
     }
   }
