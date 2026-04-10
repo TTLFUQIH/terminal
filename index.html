@@ -650,14 +650,31 @@ function detectEngulfingRecent(klines, dir, maxCandles) {
 function checkEngulfPair(prev, curr, dir) {
   const pO=parseFloat(prev[1]),pC=parseFloat(prev[4]);
   const cO=parseFloat(curr[1]),cC=parseFloat(curr[4]);
+  const pBodySize = Math.abs(pC - pO);
+  const cBodySize = Math.abs(cC - cO);
   const pHigh=Math.max(pO,pC), pLow=Math.min(pO,pC);
   const cHigh=Math.max(cO,cC), cLow=Math.min(cO,cC);
+
+  // Minimum body size — avoid doji candles
+  if (pBodySize === 0 || cBodySize === 0) return {found:false, entryPrice:null};
+
   if (dir === 'LONG') {
-    if (pC < pO && cC > cO && cLow <= pLow && cHigh >= pHigh)
-      return {found:true, entryPrice:cC};
+    // Bullish engulf: prev red, curr green
+    if (pC >= pO || cC <= cO) return {found:false, entryPrice:null};
+    // Strict: curr body fully wraps prev body
+    const strict = cLow <= pLow && cHigh >= pHigh;
+    // Flexible: curr body is significantly larger (>=70%) AND close is above prev open
+    const flexible = cBodySize >= pBodySize * 0.7 && cC > pO && cLow <= pHigh;
+    if (strict || flexible) return {found:true, entryPrice:cC};
+
   } else {
-    if (pC > pO && cC < cO && cLow <= pLow && cHigh >= pHigh)
-      return {found:true, entryPrice:cC};
+    // Bearish engulf: prev green, curr red
+    if (pC <= pO || cC >= cO) return {found:false, entryPrice:null};
+    // Strict: curr body fully wraps prev body
+    const strict = cLow <= pLow && cHigh >= pHigh;
+    // Flexible: curr body is significantly larger (>=70%) AND close is below prev open
+    const flexible = cBodySize >= pBodySize * 0.7 && cC < pO && cHigh >= pLow;
+    if (strict || flexible) return {found:true, entryPrice:cC};
   }
   return {found:false, entryPrice:null};
 }
