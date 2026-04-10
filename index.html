@@ -254,8 +254,50 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="tab-content" id="content-zonas">
         <div class="section-header"><span class="section-title">Zonas Cargadas</span><div class="section-line"></div></div>
         <div id="zones-list"><p style="color:var(--text-muted);font-size:0.85rem;padding:1rem 0;">Todavía no cargaste zonas.</p></div>
+        <!-- AI PHOTO ANALYSIS -->
+        <div class="add-zone-form" style="border-color:rgba(0,212,255,0.3);margin-bottom:1rem;">
+          <div class="section-header" style="margin-bottom:0.8rem;">
+            <span class="section-title" style="color:var(--cyan);">⬡ Analizar Chart con IA</span>
+            <div class="section-line"></div>
+          </div>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.8rem;line-height:1.5;">Subí una captura de TradingView con el eje de precios visible. Claude detecta los OB Ocultos automáticamente y los carga en Mis Zonas.</p>
+          <div class="form-row" style="align-items:flex-end;gap:0.8rem;flex-wrap:wrap;">
+            <div class="form-group">
+              <label class="form-label">Par del chart</label>
+              <input class="form-input" id="ai-pair" placeholder="BTC/USDT">
+            </div>
+            <div class="form-group">
+              <label class="form-label">TF del chart</label>
+              <select class="form-select" id="ai-tf">
+                <option value="15m">15m</option><option value="30m">30m</option>
+                <option value="1h">1H</option><option value="4h" selected>4H</option>
+                <option value="1d">1D</option><option value="1w">1W</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:200px;">
+              <label class="form-label">Captura del chart</label>
+              <input type="file" id="ai-image" accept="image/*" style="display:none" onchange="previewAIImage(event)">
+              <div id="ai-drop-zone" onclick="document.getElementById('ai-image').click()"
+                style="border:1px dashed rgba(0,212,255,0.4);border-radius:6px;padding:0.6rem 1rem;cursor:pointer;color:var(--text-muted);font-size:0.75rem;text-align:center;transition:all 0.2s;background:rgba(0,212,255,0.03);"
+                onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'"
+                onmouseout="this.style.borderColor='rgba(0,212,255,0.4)';this.style.color='var(--text-muted)'">
+                📎 Clic para seleccionar imagen
+              </div>
+              <div id="ai-preview" style="display:none;margin-top:0.4rem;">
+                <img id="ai-preview-img" style="max-height:60px;border-radius:4px;border:1px solid var(--blue-border);">
+                <span id="ai-preview-name" style="font-size:0.65rem;color:var(--text-muted);margin-left:6px;"></span>
+              </div>
+            </div>
+            <button class="add-btn" id="ai-analyze-btn" onclick="analyzeChartWithAI()" style="background:rgba(0,212,255,0.1);border-color:var(--cyan);color:var(--cyan);white-space:nowrap;">
+              ⬡ Analizar con IA
+            </button>
+          </div>
+          <div id="ai-result" style="display:none;margin-top:0.8rem;padding:0.8rem;background:rgba(0,212,255,0.05);border-radius:6px;border:1px solid rgba(0,212,255,0.15);font-size:0.75rem;color:var(--text-secondary);line-height:1.6;"></div>
+        </div>
+
+        <!-- MANUAL ZONE -->
         <div class="add-zone-form">
-          <div class="section-header" style="margin-bottom:1rem;"><span class="section-title">Agregar Zona</span></div>
+          <div class="section-header" style="margin-bottom:1rem;"><span class="section-title">Agregar Zona Manual</span></div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Par</label><input class="form-input" id="z-pair" placeholder="BTC/USDT"></div>
             <div class="form-group"><label class="form-label">Tipo</label>
@@ -514,8 +556,9 @@ function detectOBExtremo(klines, dir, tf) {
 }
 
 // Detect OB Oculto
-// OB Oculto detection
-function detectOBOculto(klines, dir) {
+// OB Oculto detection disabled — loaded manually via photo analysis in Mis Zonas
+function detectOBOculto(klines, dir) { return []; }
+function detectOBOculto_disabled(klines, dir) {
   if (!klines || klines.length < 15) return [];
   const closed = klines.slice(0, -1);
   const results = [];
@@ -1569,6 +1612,169 @@ async function renderChart(idx, symbol, tf) {
 // ZONES
 // ============================================================
 const zones = [];
+// ============================================================
+// AI PHOTO ANALYSIS
+// ============================================================
+function previewAIImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const preview = document.getElementById('ai-preview');
+  const img = document.getElementById('ai-preview-img');
+  const name = document.getElementById('ai-preview-name');
+  const drop = document.getElementById('ai-drop-zone');
+  img.src = URL.createObjectURL(file);
+  name.textContent = file.name;
+  preview.style.display = 'flex';
+  preview.style.alignItems = 'center';
+  drop.textContent = '✓ ' + file.name;
+  drop.style.color = 'var(--green)';
+  drop.style.borderColor = 'var(--green)';
+}
+
+async function analyzeChartWithAI() {
+  const pair = document.getElementById('ai-pair').value.trim().toUpperCase();
+  const tf   = document.getElementById('ai-tf').value;
+  const file = document.getElementById('ai-image').files[0];
+  const btn  = document.getElementById('ai-analyze-btn');
+  const result = document.getElementById('ai-result');
+
+  if (!pair) { alert('Ingresá el par (ej: BTC/USDT)'); return; }
+  if (!file) { alert('Seleccioná una captura del chart'); return; }
+
+  // Convert image to base64
+  const base64 = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+
+  btn.textContent = '⟳ Analizando...';
+  btn.disabled = true;
+  result.style.display = 'none';
+
+  const systemPrompt = `Sos un experto en análisis técnico de trading con la metodología TTL (Trade To Live).
+
+Tu tarea es identificar OB Ocultos (Order Blocks Ocultos) en el chart que te muestran.
+
+DEFINICIÓN DE OB OCULTO:
+- C1 = cierre de vela mínimo (para SHORT) o máximo (para LONG) que existe ANTES del impulso
+- El impulso es una vela agresiva que rompe ese cierre con fuerza (roja para SHORT, verde para LONG)
+- Después de un tiempo, el precio vuelve a esa zona y toca con mecha o cierre
+- C2 = el cierre de vela más cercano al impulso desde el lado contrario cuando el precio retorna
+- El OB = rectángulo entre C1 y C2
+
+IMPORTANTE:
+- Solo identificar OBs que NO estén mitigados (sin 3+ cierres de vela dentro del rango)
+- Leer los precios exactos del eje derecho del chart
+- El par es ${pair} en timeframe ${tf}
+
+Respondé SOLO en JSON con este formato exacto, sin texto adicional:
+{
+  "obs": [
+    {
+      "tipo": "OB Oculto",
+      "direccion": "SHORT" o "LONG",
+      "low": número,
+      "high": número,
+      "descripcion": "breve descripción de por qué es válido"
+    }
+  ],
+  "resumen": "texto breve del análisis"
+}
+
+Si no ves OBs válidos, devolvé {"obs": [], "resumen": "No se detectaron OBs Ocultos válidos"}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: file.type, data: base64 }
+            },
+            {
+              type: 'text',
+              text: `Analizá este chart de ${pair} en ${tf} e identificá los OB Ocultos válidos según la metodología TTL.`
+            }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+
+    let parsed;
+    try {
+      const clean = text.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(clean);
+    } catch(e) {
+      result.style.display = 'block';
+      result.innerHTML = `<span style="color:var(--red)">Error al parsear respuesta de IA. Intentá de nuevo.</span>`;
+      return;
+    }
+
+    // Show result
+    result.style.display = 'block';
+    let html = `<div style="color:var(--cyan);font-weight:600;margin-bottom:0.5rem;">📊 ${parsed.resumen}</div>`;
+
+    if (parsed.obs && parsed.obs.length > 0) {
+      parsed.obs.forEach(ob => {
+        const color = ob.direccion === 'SHORT' ? 'var(--red)' : 'var(--green)';
+        html += `<div style="margin-bottom:0.4rem;padding:0.4rem 0.6rem;background:rgba(0,0,0,0.2);border-radius:4px;border-left:2px solid ${color}">
+          <strong style="color:${color}">${ob.tipo} ${ob.direccion}</strong>
+          — $${ob.low} – $${ob.high}
+          <span style="color:var(--text-muted);font-size:0.68rem;"> · ${ob.descripcion}</span>
+          <button onclick="loadAIZone('${pair}','${tf}','${ob.tipo}','${ob.direccion}',${ob.low},${ob.high})"
+            style="float:right;background:rgba(0,212,255,0.1);border:1px solid var(--cyan);border-radius:3px;padding:1px 8px;color:var(--cyan);font-size:0.65rem;cursor:pointer;">
+            + Cargar
+          </button>
+        </div>`;
+      });
+    } else {
+      html += '<span style="color:var(--text-muted)">No se detectaron OBs Ocultos válidos en este chart.</span>';
+    }
+
+    result.innerHTML = html;
+
+  } catch(e) {
+    result.style.display = 'block';
+    result.innerHTML = `<span style="color:var(--red)">Error de conexión: ${e.message}</span>`;
+  } finally {
+    btn.textContent = '⬡ Analizar con IA';
+    btn.disabled = false;
+  }
+}
+
+function loadAIZone(pair, tf, tipo, dir, low, high) {
+  zones.push({
+    pair, type: tipo, dir,
+    low: Math.min(low, high),
+    high: Math.max(low, high),
+    obTf: tf,
+    range: `${low} - ${high}`,
+    ts: new Date().toLocaleTimeString(),
+    source: 'ai'
+  });
+  renderZones();
+  document.getElementById('stat-zones').textContent = zones.length;
+  // Visual feedback
+  event.target.textContent = '✓ Cargado';
+  event.target.style.color = 'var(--green)';
+  event.target.style.borderColor = 'var(--green)';
+  event.target.disabled = true;
+}
+
+// ============================================================
+// ZONES
+// ============================================================
 function addZone() {
   const pair = document.getElementById('z-pair').value.trim().toUpperCase();
   const type = document.getElementById('z-type').value;
