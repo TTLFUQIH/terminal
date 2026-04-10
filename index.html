@@ -417,10 +417,17 @@ async function fetchKlines(symbol, interval, limit) {
   return Array.isArray(data) ? data : null;
 }
 
-// VWAP from 1H candles
+// VWAP reset daily at 00:00 UTC — same as TradingView Session VWAP
 function calcVwap(klines) {
+  if (!klines || !klines.length) return null;
+  // Start of current UTC day
+  const todayStart = Math.floor(Date.now() / 86400000) * 86400000;
+  // Use candles from today's session only
+  const todayCandles = klines.filter(k => parseInt(k[0]) >= todayStart);
+  // Fallback to last 24 candles if session just started
+  const candles = todayCandles.length >= 2 ? todayCandles : klines.slice(-24);
   let sumPV = 0, sumV = 0;
-  klines.forEach(k => {
+  candles.forEach(k => {
     const h=parseFloat(k[2]),l=parseFloat(k[3]),c=parseFloat(k[4]),v=parseFloat(k[5]);
     sumPV += ((h+l+c)/3)*v; sumV += v;
   });
@@ -815,7 +822,7 @@ async function fetchPairData(p) {
     s.vwap = calcVwap(kOb);
   } else {
     // Only fetch 1h if needed — non-blocking, best effort
-    const k1h = await fetchKlines(p.symbol, '1h', 25);
+    const k1h = await fetchKlines(p.symbol, '1h', 48);
     if (k1h) s.vwap = calcVwap(k1h);
   }
 
