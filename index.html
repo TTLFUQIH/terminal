@@ -529,11 +529,12 @@ function detectOBOculto(klines, dir) {
       if (c1 === Infinity) continue;
       // Impulse must open above C1 and close below C1 (breaks minimum)
       if (!(kOpen > c1 && kClose < c1)) continue;
-      // Find C2: price returns and closes inside impulse body (between kClose and kOpen)
-      // Must be at least 3 candles after impulse
+      // Find C2: price returns and mecha (jHigh) touches C1
+      // C2 = close of that candle (even if below C1)
       for (let j = i + 3; j < Math.min(i + 100, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
-        if (jClose > kClose && jClose < c1) {
+        const jHigh  = parseFloat(window[j][2]);
+        if (jHigh >= c1) {
           const zoneSize = (c1 - jClose) / c1;
           if (zoneSize < 0.001 || zoneSize > 0.10) break;
           results.push({
@@ -547,7 +548,7 @@ function detectOBOculto(klines, dir) {
           break;
         }
         // Price went too far down — no retest coming
-        if (jClose < kClose * 0.99) break;
+        if (jClose < kClose * 0.98) break;
       }
     } else {
       // LONG OB Oculto:
@@ -566,11 +567,14 @@ function detectOBOculto(klines, dir) {
       if (c1 === -Infinity) continue;
       // Impulse must open below C1 and close above C1 (breaks maximum)
       if (!(kOpen < c1 && kClose > c1)) continue;
-      // Find C2: price returns and closes inside impulse body (between c1 and kClose)
+      // Find C2: price returns and mecha (jLow) touches C1
+      // C2 = close of that candle (even if above C1)
       // Must be at least 3 candles after impulse
       for (let j = i + 3; j < Math.min(i + 100, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
-        if (jClose > c1 && jClose < kClose) {
+        const jLow   = parseFloat(window[j][3]);
+        // Mecha reaches C1 level
+        if (jLow <= c1) {
           const zoneSize = (jClose - c1) / c1;
           if (zoneSize < 0.001 || zoneSize > 0.10) break;
           results.push({
@@ -584,7 +588,7 @@ function detectOBOculto(klines, dir) {
           break;
         }
         // Price went too far up — no retest coming
-        if (jClose > kClose * 1.01) break;
+        if (jClose > kClose * 1.02) break;
       }
     }
   }
