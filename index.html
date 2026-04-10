@@ -513,10 +513,14 @@ function detectOBOculto(klines, dir) {
     if (kRange === 0 || kBodySize / kRange < 0.4) continue;
 
     if (dir === 'SHORT') {
-      if (kClose <= kOpen) continue;
+      // SHORT OB Oculto: impulse is a BIG GREEN candle going UP, breaking resistance
+      // then price comes back down and closes below the resistance level (C1)
+      if (kClose <= kOpen) continue; // need green candle
       const prevClose = parseFloat(window[i-1][4]);
+      // Impulse must open below prevClose and close above it (breaks resistance)
       if (!(kOpen < prevClose && kClose > prevClose)) continue;
-      const firstClose = prevClose;
+      const firstClose = prevClose; // C1 = closest close from above before impulse
+      // Find C2: first close BELOW C1 after the impulse (retest from below)
       for (let j = i + 1; j < Math.min(i + 50, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
         if (jClose < firstClose) {
@@ -533,10 +537,14 @@ function detectOBOculto(klines, dir) {
         }
       }
     } else {
-      if (kClose >= kOpen) continue;
+      // LONG OB Oculto: impulse is a BIG RED candle going DOWN, breaking support
+      // then price comes back up and closes above the support level (C1)
+      if (kClose >= kOpen) continue; // need red candle
       const prevClose = parseFloat(window[i-1][4]);
+      // Impulse must open above prevClose and close below it (breaks support)
       if (!(kOpen > prevClose && kClose < prevClose)) continue;
-      const firstClose = prevClose;
+      const firstClose = prevClose; // C1 = closest close from below before impulse
+      // Find C2: first close ABOVE C1 after the impulse (retest from above)
       for (let j = i + 1; j < Math.min(i + 50, window.length); j++) {
         const jClose = parseFloat(window[j][4]);
         if (jClose > firstClose) {
