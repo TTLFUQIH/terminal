@@ -1650,7 +1650,7 @@ async function analyzeChartWithAI() {
   // Convert image to base64
   const base64 = await new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = e => resolve(e.result.split(',')[1]);
+    reader.onload = e => resolve(e.target.result.split(',')[1]);
     reader.readAsDataURL(file);
   });
 
