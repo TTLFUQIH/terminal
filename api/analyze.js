@@ -1,79 +1,79 @@
+import Anthropic from '@anthropic-ai/sdk';
+
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'API key no configurada' });
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
 
   try {
     const { imageBase64, mediaType, pair, tf } = req.body;
-    if (!imageBase64 || !pair || !tf) return res.status(400).json({ error: 'Faltan parámetros' });
 
-    const systemPrompt = `Sos un experto en análisis técnico de trading con la metodología TTL (Trade To Live).
+    if (!imageBase64 || !pair || !tf) {
+      return res.status(400).json({ error: 'Faltan datos: imageBase64, pair, tf' });
+    }
 
-Tu tarea es identificar OB Ocultos (Order Blocks Ocultos) en el chart.
+    const response = await client.messages.create({
+      model: 'claude-opus-4-5',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mediaType || 'image/png',
+                data: imageBase64,
+              },
+            },
+            {
+              type: 'text',
+              text: `Sos un experto en análisis técnico con metodología TTL (Trade To Live).
+
+Analizá este chart de ${pair} en timeframe ${tf} y detectá OB Ocultos válidos.
 
 DEFINICIÓN DE OB OCULTO:
-- Hay un nivel de precio previo (C1) — un cierre de vela mínimo (para SHORT) o máximo (para LONG)
-- Una vela agresiva de alto volumen rompe ese nivel con fuerza (roja para SHORT, verde para LONG)
-- Después de un tiempo, el precio vuelve a esa zona y toca con mecha o cierre esa misma zona
-- C2 = el cierre de vela más cercano al impulso desde el lado contrario cuando el precio retorna
-- El OB = rectángulo entre C1 y C2
-- La vela de impulso siempre es la de mayor volumen del movimiento
+- C1 = cierre de vela máximo (LONG) o mínimo (SHORT) antes del impulso
+- Impulso = vela agresiva de MAYOR VOLUMEN que rompe C1
+- El precio vuelve después y toca la zona con mecha o cierre
+- C2 = cierre de esa vela de retest
+- OB = rectángulo entre C1 y C2
+- Solo OBs NO mitigados (sin 3+ cierres dentro del rango)
 
-REGLAS:
-- Solo identificar OBs que NO estén mitigados (sin 3+ cierres de vela dentro del rango)
-- Leer los precios exactos del eje derecho del chart
-- El par es ${pair} en timeframe ${tf}
+Leé los precios exactos del eje derecho del chart.
 
-Respondé SOLO en JSON sin texto adicional ni backticks:
+Respondé SOLO en JSON sin texto adicional:
 {
   "obs": [
     {
       "tipo": "OB Oculto",
       "direccion": "SHORT" o "LONG",
-      "low": numero,
-      "high": numero,
-      "descripcion": "breve descripcion"
+      "low": número,
+      "high": número,
+      "descripcion": "breve descripción"
     }
   ],
-  "resumen": "texto breve"
-}`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 }
-            },
-            { type: 'text', text: `Analizá este chart de ${pair} en ${tf} e identificá los OB Ocultos válidos.` }
+  "resumen": "texto breve del análisis"
+}`
+            }
           ]
-        }]
-      })
+        }
+      ]
     });
 
-    const data = await response.json();
-    if (!response.ok) return res.status(500).json({ error: data.error?.message || 'Error de Claude API' });
-
-    const text = data.content?.[0]?.text || '';
+    const text = response.content[0].text;
     return res.status(200).json({ result: text });
 
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
+  } catch (error) {
+    console.error('Error en analyze:', error);
+    return res.status(500).json({ error: error.message || 'Error interno' });
   }
 }
