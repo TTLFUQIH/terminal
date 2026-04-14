@@ -277,11 +277,11 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
             <div class="form-group" style="flex:1;min-width:200px;">
               <label class="form-label">Captura del chart</label>
               <input type="file" id="ai-image" accept="image/*" style="display:none" onchange="previewAIImage(event)">
-              <div id="ai-drop-zone" onclick="document.getElementById('ai-image').click()"
+              <div id="ai-drop-zone" tabindex="0" onclick="document.getElementById('ai-image').click()"
                 style="border:1px dashed rgba(0,212,255,0.4);border-radius:6px;padding:0.6rem 1rem;cursor:pointer;color:var(--text-muted);font-size:0.75rem;text-align:center;transition:all 0.2s;background:rgba(0,212,255,0.03);"
                 onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'"
                 onmouseout="this.style.borderColor='rgba(0,212,255,0.4)';this.style.color='var(--text-muted)'">
-                📎 Clic para seleccionar imagen
+                📎 Clic o Ctrl+V para pegar imagen
               </div>
               <div id="ai-preview" style="display:none;margin-top:0.4rem;">
                 <img id="ai-preview-img" style="max-height:60px;border-radius:4px;border:1px solid var(--blue-border);">
@@ -1615,26 +1615,32 @@ const zones = [];
 // ============================================================
 // AI PHOTO ANALYSIS
 // ============================================================
-function previewAIImage(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+let _aiPastedFile = null;
+
+function loadAIImageFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  _aiPastedFile = file;
   const preview = document.getElementById('ai-preview');
   const img = document.getElementById('ai-preview-img');
   const name = document.getElementById('ai-preview-name');
   const drop = document.getElementById('ai-drop-zone');
   img.src = URL.createObjectURL(file);
-  name.textContent = file.name;
+  name.textContent = file.name || 'imagen pegada';
   preview.style.display = 'flex';
   preview.style.alignItems = 'center';
-  drop.textContent = '✓ ' + file.name;
+  drop.textContent = '✓ ' + (file.name || 'imagen pegada');
   drop.style.color = 'var(--green)';
   drop.style.borderColor = 'var(--green)';
+}
+
+function previewAIImage(event) {
+  loadAIImageFile(event.target.files[0]);
 }
 
 async function analyzeChartWithAI() {
   const pair = document.getElementById('ai-pair').value.trim().toUpperCase();
   const tf   = document.getElementById('ai-tf').value;
-  const file = document.getElementById('ai-image').files[0];
+  const file = document.getElementById('ai-image').files[0] || _aiPastedFile;
   const btn  = document.getElementById('ai-analyze-btn');
   const result = document.getElementById('ai-result');
 
@@ -1887,6 +1893,34 @@ function doLogout() {
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// Paste en el drop zone cuando está enfocado
+document.getElementById('ai-drop-zone').addEventListener('paste', e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      loadAIImageFile(item.getAsFile());
+      break;
+    }
+  }
+});
+
+// Paste global cuando no hay ningún input enfocado
+document.addEventListener('paste', e => {
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      loadAIImageFile(item.getAsFile());
+      break;
+    }
+  }
+});
 </script>
 </body>
 </html>
