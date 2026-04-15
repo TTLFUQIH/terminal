@@ -37,32 +37,38 @@ export default async function handler(req, res) {
             },
             {
               type: 'text',
-              text: `Sos un experto en análisis técnico con metodología TTL (Trade To Live).
+              text: `Analizá esta imagen de un chart de ${pair} en timeframe ${tf}.
 
-Analizá este chart de ${pair} en timeframe ${tf} y detectá OB Ocultos válidos.
+Tu única fuente de información es esta imagen. No uses conocimiento externo sobre el activo.
 
-DEFINICIÓN DE OB OCULTO:
-- C1 = cierre de vela máximo (LONG) o mínimo (SHORT) antes del impulso
-- Impulso = vela agresiva de MAYOR VOLUMEN que rompe C1
-- El precio vuelve después y toca la zona con mecha o cierre
-- C2 = cierre de esa vela de retest
-- OB = rectángulo entre C1 y C2
-- Solo OBs NO mitigados (sin 3+ cierres dentro del rango)
+TAREA: Identificar OB Ocultos visibles en el chart.
 
-Leé los precios exactos del eje derecho del chart.
+Un OB Oculto se forma así:
+- Existe un cierre previo importante (C1) visible en el chart
+- Una vela grande y fuerte visualmente rompe ese cierre (vela de impulso) — el volumen elevado es una señal de apoyo pero no es condición obligatoria
+- El precio vuelve después y toca esa zona con mecha o cierre (C2)
+- El OB es el rectángulo entre C1 y C2
+- Si tiene 3 o más cierres dentro del rango = está mitigado = NO lo reportes
 
-Respondé SOLO en JSON sin texto adicional:
+IMPORTANTE:
+- Lee los precios EXACTAMENTE del eje derecho de la imagen
+- Si no podés leer un precio con precisión del eje, NO reportes ese OB
+- Solo reportá OBs claramente visibles en esta imagen
+- Máximo 3 OBs
+- NO uses memoria de precios históricos del activo
+
+Respondé SOLO en JSON:
 {
   "obs": [
     {
       "tipo": "OB Oculto",
       "direccion": "SHORT" o "LONG",
-      "low": número,
-      "high": número,
-      "descripcion": "breve descripción"
+      "low": número leído del eje derecho,
+      "high": número leído del eje derecho,
+      "descripcion": "describí C1, el impulso y C2 que ves en la imagen"
     }
   ],
-  "resumen": "texto breve del análisis"
+  "resumen": "resumen de lo que ves en el chart"
 }`
             }
           ]
