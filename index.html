@@ -1786,8 +1786,9 @@ async function loadZonesFromDB() {
   try {
     const r = await fetch('/api/zones?user_id=1');
     const data = await r.json();
-    if (!Array.isArray(data)) return;
-    data.forEach(z => {
+    const list = Array.isArray(data) ? data : (data.zones || []);
+    if (!list.length) return;
+    list.forEach(z => {
       zones.push({
         id: z.id,
         pair: z.pair,
