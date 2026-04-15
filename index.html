@@ -1803,6 +1803,7 @@ async function loadZonesFromDB() {
       });
     });
     renderZones();
+    document.getElementById('stat-zones').textContent = zones.length;
     renderScanner();
   } catch(e) {
     console.error('Error cargando zonas:', e);
@@ -1816,6 +1817,13 @@ function deleteZone(id, idx) {
   zones.splice(idx, 1);
   renderZones();
   document.getElementById('stat-zones').textContent = zones.length;
+  // Redibujar chart activo si está abierto
+  const openRow = document.querySelector('.analysis-row.open');
+  if (openRow) {
+    const idx = openRow.id.replace('ar-','');
+    const p = PAIRS[parseInt(idx)];
+    if (p) setTimeout(() => renderChart(parseInt(idx), p.symbol, p.tf), 50);
+  }
 }
 
 function addZone() {
