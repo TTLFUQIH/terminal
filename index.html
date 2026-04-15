@@ -1385,6 +1385,7 @@ let wsActive = false;
 let priceInterval = null;
 
 async function startup() {
+  await loadZonesFromDB();
   setNotif('Conectando con Binance...', 'cyan');
 
   // Step 1: Load all prices via REST (fast, 1 request)
@@ -1765,6 +1766,7 @@ function loadAIZone(pair, tf, tipo, dir, low, high) {
     ts: new Date().toLocaleTimeString(),
     source: 'ai'
   });
+  fetch('/api/zones', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({user_id:1, pair, type: tipo, ob_tf: tf, low: Math.min(low,high), high: Math.max(low,high), direction: dir, source:'ai'})}).then(r=>r.json()).then(data=>{ if(data.zone) zones[zones.length-1].id = data.zone.id; });
   renderZones();
   document.getElementById('stat-zones').textContent = zones.length;
   // Visual feedback
@@ -1777,6 +1779,32 @@ function loadAIZone(pair, tf, tipo, dir, low, high) {
 // ============================================================
 // ZONES
 // ============================================================
+async function loadZonesFromDB() {
+  try {
+    const r = await fetch('/api/zones?user_id=1');
+    const data = await r.json();
+    if (!Array.isArray(data)) return;
+    data.forEach(z => {
+      zones.push({
+        id: z.id,
+        pair: z.pair,
+        type: z.type,
+        obTf: z.ob_tf,
+        low: parseFloat(z.low),
+        high: parseFloat(z.high),
+        dir: z.direction,
+        source: z.source,
+        range: z.low + ' - ' + z.high,
+        ts: 'Guardado'
+      });
+    });
+    renderZones();
+    renderScanner();
+  } catch(e) {
+    console.error('Error cargando zonas:', e);
+  }
+}
+
 function addZone() {
   const pair = document.getElementById('z-pair').value.trim().toUpperCase();
   const type = document.getElementById('z-type').value;
@@ -1789,6 +1817,7 @@ function addZone() {
   const high = parseFloat(parts[1] || parts[0]);
   if (isNaN(low) || isNaN(high)) { alert('Rango inválido. Usá formato: 60000 - 62000'); return; }
   zones.push({pair, type, range, low: Math.min(low,high), high: Math.max(low,high), obTf, ts: new Date().toLocaleTimeString()});
+  fetch('/api/zones', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({user_id:1, pair, type, ob_tf: document.getElementById('z-tf').value, low: Math.min(low,high), high: Math.max(low,high), direction: null, source:'manual'})}).then(r=>r.json()).then(data=>{ if(data.zone) zones[zones.length-1].id = data.zone.id; });
   document.getElementById('z-pair').value = '';
   document.getElementById('z-range').value = '';
   renderZones();
@@ -1832,6 +1861,7 @@ function renderZones() {
           <span style="font-family:Orbitron,monospace;font-size:0.75rem;">$${z.range}</span>
           <span style="font-size:0.68rem;color:var(--cyan);">OB ${(z.obTf||'—').toUpperCase()}</span>
           <span style="font-size:0.68rem;color:var(--text-muted);">${z.ts}</span>
+          ${z.id != null ? `<button onclick="fetch('/api/zones',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:${z.id},user_id:1})}).then(()=>{zones=zones.filter(x=>x.id!==${z.id});renderZones();renderScanner();})" style="margin-left:auto;background:rgba(255,59,59,0.1);border:1px solid rgba(255,59,59,0.4);border-radius:3px;padding:1px 7px;color:var(--red);font-size:0.65rem;cursor:pointer;">✕</button>` : ''}
         </div>`).join('')}
       </div>`
     ).join('');
