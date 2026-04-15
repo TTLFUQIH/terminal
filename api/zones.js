@@ -2,6 +2,9 @@ import { neon } from '@neondatabase/serverless';
 const sql = neon(process.env.DATABASE_URL);
 
 export default async function handler(req, res) {
+  console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+  console.log('Method:', req.method);
+
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -44,6 +47,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error en zones:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ error: error.message, stack: error.stack });
   }
 }
