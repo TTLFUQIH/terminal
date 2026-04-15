@@ -989,7 +989,7 @@ async function fetchPairData(p) {
 
   // MACD + engulfing: ONLY when price is literally inside the OB range
   // "near" and "approaching" = price hasn't touched the OB yet
-  if (closestProx !== 'inside') {
+  if (closestProx !== 'inside' && closestProx !== 'near') {
     s.macdDiv = false;
     return;
   }
@@ -1022,7 +1022,7 @@ async function fetchPairData(p) {
     if (!kConf) continue;
 
     // Only check last 3 closed candles — engulfing must be recent
-    const eng = detectEngulfingRecent(kConf, autoDir, 2);
+    const eng = detectEngulfingRecent(kConf, autoDir, 5);
     if (eng.found) {
       const label = TF_LABELS[tf]||tf;
       // Avoid duplicate labels
