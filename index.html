@@ -363,8 +363,8 @@ const TF_API       = {'1m':'1m','3m':'3m','5m':'5m','15m':'15m','30m':'30m','1h'
 function getConfirmTFs(obTf) {
   const idx = TF_HIERARCHY.indexOf(obTf);
   if (idx < 0) return [];
-  const start = Math.max(0, idx - 3);
-  return TF_HIERARCHY.slice(start, idx); // up to 3 levels below, smallest first
+  const start = Math.max(0, idx - 4);
+  return TF_HIERARCHY.slice(start, idx); // up to 4 levels below, smallest first
 }
 
 // Entry quality based on how many levels below OB the confirmation is
