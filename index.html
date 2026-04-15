@@ -1690,6 +1690,12 @@ Respondé SOLO en JSON con este formato exacto, sin texto adicional:
 
 Si no ves OBs válidos, devolvé {"obs": [], "resumen": "No se detectaron OBs Ocultos válidos"}`;
 
+  const symbol = pair.replace('/', '');
+  const existingOBs = ((state[symbol]||{}).detectedZones||[])
+    .filter(z => z.type === 'OB Extremo')
+    .map(z => `${z.low}-${z.high}`)
+    .join(', ') || 'ninguno';
+
   try {
     const response = await fetch('/api/analyze', {
       method: 'POST',
@@ -1698,7 +1704,8 @@ Si no ves OBs válidos, devolvé {"obs": [], "resumen": "No se detectaron OBs Oc
         imageBase64: base64,
         mediaType: file.type,
         pair,
-        tf
+        tf,
+        existingOBs
       })
     });
 
