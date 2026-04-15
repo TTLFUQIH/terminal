@@ -341,7 +341,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 // CONFIG
 // ============================================================
 const PAIRS = [
-  {pair:'BTC/USDT', symbol:'BTCUSDT', tf:'4h', dir:'LONG',  zones:['OB Extremo','OB Oculto','Key Level']},
+  {pair:'BTC/USDT', symbol:'BTCUSDT', tf:'1d', dir:'LONG',  zones:['OB Extremo','OB Oculto','Key Level']},
   {pair:'ETH/USDT', symbol:'ETHUSDT', tf:'4h', dir:'LONG',  zones:['OB Extremo','OB Oculto']},
   {pair:'XRP/USDT', symbol:'XRPUSDT', tf:'4h', dir:'SHORT', zones:['OB Oculto','Key Level','OB Extremo']},
   {pair:'SOL/USDT', symbol:'SOLUSDT', tf:'1d', dir:'LONG',  zones:['OB Extremo']},
@@ -951,7 +951,7 @@ async function fetchPairData(p) {
 
   // === REQUEST 1: OB timeframe klines ===
   // Reuse for: OB detection + vol desc + MACD + VWAP if obTf is 1h
-  const kOb = await fetchKlines(p.symbol, apiObTf, 200);
+  const kOb = await fetchKlines(p.symbol, apiObTf, 300);
   if (!kOb) return;
 
   // VWAP: if obTf is 1h reuse kOb, else fetch 1h separately
@@ -1521,7 +1521,7 @@ async function renderChart(idx, symbol, tf) {
   existingCanvas.forEach(el => el.remove());
 
   const apiTf = TF_API[tf] || tf;
-  const klines = await fetchKlines(symbol, apiTf, 200);
+  const klines = await fetchKlines(symbol, apiTf, 300);
   if (loading) loading.style.display = 'none';
   if (!klines || !klines.length) {
     if (loading) { loading.textContent = 'Error cargando datos'; loading.style.display = 'flex'; }
