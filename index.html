@@ -1809,6 +1809,15 @@ async function loadZonesFromDB() {
   }
 }
 
+function deleteZone(id, idx) {
+  if (id) {
+    fetch('/api/zones', {method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id, user_id:1})});
+  }
+  zones.splice(idx, 1);
+  renderZones();
+  document.getElementById('stat-zones').textContent = zones.length;
+}
+
 function addZone() {
   const pair = document.getElementById('z-pair').value.trim().toUpperCase();
   const type = document.getElementById('z-type').value;
@@ -1860,12 +1869,12 @@ function renderZones() {
     html += Object.entries(g).map(([pair,zs]) =>
       `<div class="zone-panel">
         <div class="zone-header"><span style="font-family:Orbitron,monospace;font-size:0.95rem;font-weight:700;">${pair}</span></div>
-        ${zs.map(z=>`<div class="zone-row">
+        ${zs.map((z, idx)=>`<div class="zone-row">
           <span style="font-size:0.68rem;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;width:90px;">${z.type}</span>
           <span style="font-family:Orbitron,monospace;font-size:0.75rem;">$${z.range}</span>
           <span style="font-size:0.68rem;color:var(--cyan);">OB ${(z.obTf||'—').toUpperCase()}</span>
           <span style="font-size:0.68rem;color:var(--text-muted);">${z.ts}</span>
-          ${z.id != null ? `<button onclick="fetch('/api/zones',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:${z.id},user_id:1})}).then(()=>{zones=zones.filter(x=>x.id!==${z.id});renderZones();renderScanner();})" style="margin-left:auto;background:rgba(255,59,59,0.1);border:1px solid rgba(255,59,59,0.4);border-radius:3px;padding:1px 7px;color:var(--red);font-size:0.65rem;cursor:pointer;">✕</button>` : ''}
+          <button onclick="deleteZone(${z.id || null}, ${idx})" style="margin-left:auto;background:rgba(255,59,59,0.1);border:1px solid rgba(255,59,59,0.4);border-radius:3px;padding:1px 7px;color:var(--red);font-size:0.65rem;cursor:pointer;">✕</button>
         </div>`).join('')}
       </div>`
     ).join('');
