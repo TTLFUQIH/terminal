@@ -1735,7 +1735,7 @@ Si no ves OBs válidos, devolvé {"obs": [], "resumen": "No se detectaron OBs Oc
           <strong style="color:${color}">${ob.tipo} ${ob.direccion}</strong>
           — $${ob.low} – $${ob.high}
           <span style="color:var(--text-muted);font-size:0.68rem;"> · ${ob.descripcion}</span>
-          <button onclick="loadAIZone('${pair}','${tf}','${ob.tipo}','${ob.direccion}',${ob.low},${ob.high})"
+          <button onclick="loadAIZone('${pair}','${tf}','${ob.tipo}','${ob.direccion}',${ob.low},${ob.high},this)"
             style="float:right;background:rgba(0,212,255,0.1);border:1px solid var(--cyan);border-radius:3px;padding:1px 8px;color:var(--cyan);font-size:0.65rem;cursor:pointer;">
             + Cargar
           </button>
@@ -1756,7 +1756,7 @@ Si no ves OBs válidos, devolvé {"obs": [], "resumen": "No se detectaron OBs Oc
   }
 }
 
-function loadAIZone(pair, tf, tipo, dir, low, high) {
+function loadAIZone(pair, tf, tipo, dir, low, high, btn) {
   zones.push({
     pair, type: tipo, dir,
     low: Math.min(low, high),
@@ -1766,14 +1766,17 @@ function loadAIZone(pair, tf, tipo, dir, low, high) {
     ts: new Date().toLocaleTimeString(),
     source: 'ai'
   });
-  fetch('/api/zones', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({user_id:1, pair, type: tipo, ob_tf: tf, low: Math.min(low,high), high: Math.max(low,high), direction: dir, source:'ai'})}).then(r=>r.json()).then(data=>{ if(data.zone) zones[zones.length-1].id = data.zone.id; });
+  fetch('/api/zones', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({user_id:1, pair, type: tipo, ob_tf: tf, low: Math.min(low,high), high: Math.max(low,high), direction: dir, source:'ai'})})
+    .then(r=>r.json())
+    .then(data=>{ if(data.zone) zones[zones.length-1].id = data.zone.id; });
   renderZones();
   document.getElementById('stat-zones').textContent = zones.length;
-  // Visual feedback
-  event.target.textContent = '✓ Cargado';
-  event.target.style.color = 'var(--green)';
-  event.target.style.borderColor = 'var(--green)';
-  event.target.disabled = true;
+  if (btn) {
+    btn.textContent = '✓ Cargado';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'var(--green)';
+    btn.disabled = true;
+  }
 }
 
 // ============================================================
