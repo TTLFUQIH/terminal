@@ -212,10 +212,6 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   .scanner-table tr.data-row td:nth-child(3),
   .scanner-table tr.data-row td:nth-child(4),
   .scanner-table tr.data-row td:nth-child(5){display:none;}
-  /* Fila expandida full width */
-  .scanner-table tr.analysis-row{display:block;}
-  .scanner-table tr.analysis-row td{display:block;padding:0;}
-
   /* Chart header */
   .chart-header{flex-direction:column;align-items:flex-start;}
   .chart-legend{flex-wrap:wrap;gap:0.4rem;}
@@ -1596,7 +1592,7 @@ async function renderChart(idx, symbol, tf) {
     },
     grid: { vertLines:{color:'#0d2640'}, horzLines:{color:'#0d2640'} },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor:'#0d2640' },
+    rightPriceScale: { borderColor:'#0d2640', minimumWidth: window.innerWidth < 768 ? 80 : 60 },
     timeScale: { borderColor:'#0d2640', timeVisible:true, secondsVisible:false },
   });
 
