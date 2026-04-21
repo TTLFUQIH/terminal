@@ -1587,8 +1587,13 @@ async function renderChart(idx, symbol, tf) {
   const chartWidth = container.clientWidth || window.innerWidth - 32;
   const chart = LightweightCharts.createChart(container, {
     width: chartWidth,
-    height: 320,
-    layout: { background:{color:'#0a1e35'}, textColor:'#7ab8d4', fontSize:11, fontFamily:'Rajdhani,sans-serif' },
+    height: window.innerWidth < 768 ? 250 : 320,
+    layout: {
+      background:{color:'#0a1e35'},
+      textColor:'#7ab8d4',
+      fontSize: window.innerWidth < 768 ? 9 : 11,
+      fontFamily:'Rajdhani,sans-serif'
+    },
     grid: { vertLines:{color:'#0d2640'}, horzLines:{color:'#0d2640'} },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
     rightPriceScale: { borderColor:'#0d2640' },
@@ -1659,7 +1664,7 @@ async function renderChart(idx, symbol, tf) {
 
   chart.timeScale().fitContent();
 
-  const ro = new ResizeObserver(()=>{ const w = container.clientWidth || window.innerWidth - 32; if(w > 0) chart.resize(w, 320); });
+  const ro = new ResizeObserver(()=>{ const h = window.innerWidth < 768 ? 250 : 320; const w = container.clientWidth || window.innerWidth - 32; if(w > 0) chart.resize(w, h); });
   ro.observe(container);
 
   activeCharts[idx] = {chart, symbol, tf};
